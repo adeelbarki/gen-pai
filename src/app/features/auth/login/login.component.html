@@ -1,1 +1,19 @@
-<p>login works!</p>
+<div class="container mt-5">
+    <h2>Login</h2>
+    <form (submit)="login(); $event.preventDefault()">
+      <div class="mb-3">
+        <label>Username</label>
+        <input type="text" class="form-control" [(ngModel)]="username" name="username" required />
+      </div>
+      <div class="mb-3">
+        <label>Password</label>
+        <input type="password" class="form-control" [(ngModel)]="password" name="password" required />
+      </div>
+      <button class="btn btn-primary">Login</button>
+      <p *ngIf="errorMessage" class="text-danger mt-2">{{ errorMessage }}</p>
+      <p class="mt-2">
+        Forgot password? <a routerLink="/auth/forgot-password">Reset Here</a>
+      </p>
+    </form>
+  </div>
+  
