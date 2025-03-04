@@ -1,31 +1,13 @@
-<!-- Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <div class="container">
-    <a class="navbar-brand" routerLink="/">Angular Cognito Auth</a>
-
-    <div class="collapse navbar-collapse">
-      <ul class="navbar-nav ms-auto">
-        <li class="nav-item">
-          <a *ngIf="!isAuthenticated" class="nav-link" routerLink="/auth/login">Login</a>
-        </li>
-        <li class="nav-item">
-          <a *ngIf="!isAuthenticated" class="nav-link" routerLink="/auth/register">Register</a>
-        </li>
-        <li class="nav-item">
-          <!-- <a *ngIf="isAuthenticated" class="nav-link" routerLink="/dashboard">Dashboard</a> -->
-        </li>
-        <li class="nav-item">
-          <!-- <a *ngIf="isAuthenticated" class="nav-link" routerLink="/profile">Profile</a> -->
-        </li>
-        <li class="nav-item">
-          <button *ngIf="isAuthenticated" class="btn btn-danger ms-2" (click)="logout()">Logout</button>
-        </li>
-      </ul>
-    </div>
-  </div>
-</nav>
-
-<!-- Main Content -->
-<div class="container mt-4">
-  <router-outlet></router-outlet>
-</div>
+<amplify-authenticator [loginMechanisms]="['email']"
+  [signUpAttributes]="['given_name', 'family_name', 'phone_number', 
+  'birthdate']"
+>
+  <ng-template
+    amplifySlot="authenticated"
+    let-user="user"
+    let-signOut="signOut"
+  >
+    <h1>Welcome</h1>
+    <button (click)="signOut()">Sign Out</button>
+  </ng-template>
+</amplify-authenticator>
