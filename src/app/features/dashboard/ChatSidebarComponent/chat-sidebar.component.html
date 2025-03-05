@@ -1,0 +1,20 @@
+<div class="w-full h-full bg-white shadow-md rounded-lg p-4 flex flex-col">
+  <div class="flex border-b border-gray-300 mb-4">
+      <button (click)="activeTab = 'history'" 
+      [class.bg-gray-200]="activeTab === 'history'" 
+      class="w-1/2 py-2 text-center text-sm font-semibold hover:bg-blue-300 rounded-t-lg"
+      >History</button>
+      <div class="w-1/2 flex justify-end gap-2 p-2">
+        <button 
+            class="w-8 h-8 flex items-center justify-center rounded-md bg-gray-200 hover:bg-blue-400 hover:text-white transition"
+            (click)="onSearch()">
+            🔍
+        </button>
+        <button 
+            class="w-8 h-8 flex items-center justify-center rounded-md bg-gray-200 hover:bg-blue-400 hover:text-white transition"
+            (click)="startNewChat()">
+            ➕
+        </button>
+    </div>
+  </div>
+</div>
