@@ -1,0 +1,22 @@
+<div class="relative w-full h-full bg-white shadow-md rounded-lg p-4 flex flex-col">
+    <div class="w-full pb-2 border-b-2 border-gray-300 mb-4 self-start">
+        <h2 class="text-xl font-bold">{{ activeTab }}</h2>
+    </div>
+    <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[70%] w-[12%] h-[17%] bg-white shadow-lg rounded-lg flex flex-col items-center justify-center gap-2">
+        <button 
+            (click)="setActiveTab('Events')"
+            [ngClass]="{'bg-blue-500 text-white': activeTab === 'Events', 'bg-gray-200 hover:bg-blue-400 hover:text-white': activeTab !== 'Events'}"
+            class="w-[70%] h-8 rounded-md flex items-center justify-center transition">
+        E</button>
+        <button 
+            (click)="setActiveTab('Recent Studies')"  
+            [ngClass]="{'bg-blue-500 text-white': activeTab === 'Recent Studies', 'bg-gray-200 hover:bg-blue-400 hover:text-white': activeTab !== 'Recent Studies'}"
+            class="w-[70%] h-8 rounded-md flex items-center justify-center transition">
+        S</button>
+        <button 
+        (click)="setActiveTab('Medicine History')"  
+        [ngClass]="{'bg-blue-500 text-white': activeTab === 'Medicine History', 'bg-gray-200 hover:bg-blue-400 hover:text-white': activeTab !== 'Medicine History'}"
+        class="w-[70%] h-8 rounded-md flex items-center justify-center transition">
+        M</button>
+    </div>
+</div>
