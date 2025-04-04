@@ -1,12 +1,26 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+// import { RouterOutlet } from '@angular/router';
+import { AuthService } from './core/services/auth.service';
+import { Router } from '@angular/router';
+// import { NgIf } from '@angular/common';
+import { AmplifyAuthenticatorModule } from '@aws-amplify/ui-angular';
+import { Amplify } from 'aws-amplify';
+import { environment } from '../environments/environment';
+import { DashboardComponent } from './features/dashboard/dashboard.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  standalone: true,
+  imports: [AmplifyAuthenticatorModule, DashboardComponent],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  styleUrls: ['./app.component.css']
 })
 export class AppComponent {
-  title = 'gen-pai';
+  title = 'Angular Cognito Auth';
+
+  constructor(private authService: AuthService, private router: Router) {
+    Amplify.configure(environment.amplifyConfig);
+  }
+
+
 }

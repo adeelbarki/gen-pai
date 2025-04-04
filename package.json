@@ -18,7 +18,13 @@
     "@angular/platform-browser": "^19.1.0",
     "@angular/platform-browser-dynamic": "^19.1.0",
     "@angular/router": "^19.1.0",
+    "@aws-amplify/auth": "^6.10.2",
+    "@aws-amplify/ui-angular": "^5.0.38",
+    "@tailwindcss/postcss": "^4.0.3",
+    "aws-amplify": "^6.12.3",
+    "postcss": "^8.5.1",
     "rxjs": "~7.8.0",
+    "tailwindcss": "^4.0.3",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"
   },
