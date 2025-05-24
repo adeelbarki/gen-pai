@@ -9,7 +9,8 @@ namespace PhysicianAI.Api.Controllers
         [HttpPost]
         public IActionResult QueryPatient([FromBody] UserQuestion question)
         {
-            return Ok($"Received question: {question.Text}");
+            return Ok(new { answer = $"Received question: {question.Text}" });
+
         }
     }
     public class UserQuestion
