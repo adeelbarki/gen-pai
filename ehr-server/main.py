@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from models import PatientModel, Encounter
-from schemas import PatientIn
+from schemas import PatientIn, EncounterIn
 from database import Base, engine, SessionLocal
 from utilities.hl7_utils import build_adt, build_oru, build_orm
 import uuid
@@ -45,6 +45,24 @@ async def add_patient(patient: PatientIn, db: AsyncSession = Depends(get_db)):
         }
     }
 
+@app.post("/encounters/", tags=["Encounters"])
+async def create_encounter(encounter: EncounterIn, db: AsyncSession = Depends(get_db)):
+    new_encounter = Encounter(
+        id=str(uuid.uuid4()),
+        patient_id=encounter.patient_id,
+        provider_id=encounter.provider_id,
+        facility_id=encounter.facility_id,
+        encounter_date=encounter.encounter_date,
+        reason=encounter.reason,
+        type=encounter.type,
+        notes=encounter.notes,
+    )
+    db.add(new_encounter)
+    await db.commit()
+    return {
+        "message": "Encounter added successfully",
+        "encounter_id": new_encounter.id
+    }
 
 
 @app.get("/patients/{patient_id}/hl7/{msg_type}", tags=["HL7"])
