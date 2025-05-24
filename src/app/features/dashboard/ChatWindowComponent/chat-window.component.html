@@ -3,7 +3,7 @@
     <h2 class="text-xl font-bold">Chat</h2>
   </div>
 
-  <div class="flex-1 overflow-y-auto p-4 space-y-2">
+  <div #scrollContainer class="flex-1 overflow-y-auto p-4 space-y-2 font-sans">
   <p *ngIf="chatLog.length === 0" class="text-sm text-gray-700">
     Chat messages will appear here...
   </p>

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChatService } from './chat.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -21,6 +21,9 @@ export class ChatWindowComponent {
 
   chatLog: { role: 'user' | 'ai', text: string }[] = [];
 
+  @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
+
+
   sendMessage() {
     if(!this.message.trim()) return;
 
@@ -34,9 +37,11 @@ export class ChatWindowComponent {
     if (textarea) {
       textarea.style.height = 'auto';
     }
+    setTimeout(() => this.scrollToBottom(), 0);
     }, error => {
       console.error('Error sending message:', error)
     })
+    
   }
 
   autoResize(event: Event) {
@@ -44,4 +49,15 @@ export class ChatWindowComponent {
   textarea.style.height = 'auto';
   textarea.style.height = `${textarea.scrollHeight}px`;
 }
+
+private scrollToBottom() {
+    try {
+      this.scrollContainer.nativeElement.scrollTop = this.scrollContainer.nativeElement.scrollHeight;
+    } catch (err) {
+      console.error('Scroll error:', err);
+    }
+  }
+
+  
 }
+
