@@ -62,3 +62,59 @@ It combines a modern Angular frontend, a .NET Core API backend, a Python FastAPI
 cd frontend
 npm install
 npm run start
+```
+### 2️⃣ .NET API Server
+```bash
+cd api-server/PhysicianAI.Api
+dotnet run
+```
+### 3️⃣ Python FastAPI LLM Server
+```bash
+cd llm-server
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 5000
+```
+### 4️⃣ Redis (with RediSearch)
+```bash
+docker run -p 6379:6379 redis/redis-stack-server:latest
+```
+
+## 🏗 Architecture Overview
+```bash
+[ Angular Frontend ] → [ .NET API Server ] → [ Python FastAPI LLM Service ] → [ Redis Vector DB ]
+```
+- Frontend sends HTTP requests to .NET API
+- .NET API orchestrates backend calls, forwards queries to FastAPI
+- FastAPI runs LLM + RAG pipeline, retrieves data from Redis
+- Response flows back to the user chat window
+
+## 🔐 Secrets Handling
+- `.env` in Python → holds `OPENAI_API_KEY`
+- `appsettings.Development.json` in .NET → holds dev environment configs (ignored in Git)
+```bash
+OPENAI_API_KEY=your-openai-api-key-here
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+Example appsettings.Development.json:
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+## ✨ Features
+✅ Handles non-emergency symptom Q&A
+✅ Provides dynamic AI chat responses
+✅ Integrates OpenAI GPT + LangChain RAG pipelines
+✅ Uses Redis vector search for embedding queries
+✅ Modular microservice architecture for scalability
+
+## 📜 License
+This project is under development. License terms will be added in a future release.
