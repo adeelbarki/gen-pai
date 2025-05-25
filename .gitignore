@@ -60,4 +60,6 @@ __pycache__/
 /api-server/appsettings.Development.json
 /api-server/PhysicianAI.Api/bin/
 /api-server/PhysicianAI.Api/obj/
+/api-server/PhysicianAI.Api/appsettings.Development.json
+
 

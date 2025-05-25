@@ -1,59 +1,64 @@
-# GenPai
+# 🩺 GenPAI — Generative Physician AI
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.1.5.
+**GenPAI** is a multi-component medical AI system designed to assist patients with non-emergency general health questions.  
+It combines a modern Angular frontend, a .NET Core API backend, a Python FastAPI microservice powered by OpenAI + LangChain, and Redis for advanced similarity search.
 
-## Development server
+---
 
-To start a local development server, run:
+## 🌟 Project Structure
 
+/genpai/
+/frontend/ → Angular app (chat UI)
+/api-server/ → .NET Core Web API (routing + orchestration)
+/llm-server/ → Python FastAPI LLM service (OpenAI + LangChain)
+/redis/ → Redis vector store (RediSearch)
+
+
+---
+
+## 📦 Components
+
+### 🖼 Frontend (Angular)
+- Chat UI for users to submit symptoms and queries
+- Displays live AI responses, dynamic loading dots, and conversation history
+- Connects to the backend API via HTTP
+
+### ⚙ Backend API (C# / .NET Core)
+- Receives patient queries from the Angular frontend
+- Calls Python FastAPI LLM service for generative responses
+- Acts as the secure middle layer between frontend and AI logic
+
+### 🧠 LLM Service (Python / FastAPI)
+- Handles natural language questions and symptom queries
+- Uses OpenAI GPT (with LangChain RAG support)
+- Connects to Redis vector search for embedding-based retrieval
+
+### 🏪 Redis (Vector Store)
+- Stores medical knowledge chunks + embeddings
+- Provides fast KNN similarity search (using RediSearch)
+
+---
+
+## 🔑 Environment & Config
+
+### ✅ Included in version control:
+- Angular app source
+- .NET Core API (excluding sensitive configs)
+- Python LLM FastAPI service (excluding `.env`)
+- Example configs
+
+### ❌ Ignored via `.gitignore`:
+- `llm-server/.env` → holds your `OPENAI_API_KEY`
+- `llm-server/venv/` → Python virtual environment
+- `api-server/PhysicianAI.Api/bin/` and `obj/` → .NET build artifacts
+- `api-server/PhysicianAI.Api/appsettings.Development.json` → local dev secrets
+
+---
+
+## ⚡ Quick Start
+
+### 1️⃣ Frontend (Angular)
 ```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+cd frontend
+npm install
+npm run start
