@@ -19,7 +19,8 @@
       <div
         [ngClass]="{
           'bg-gray-200 text-gray-800 self-end': line.role === 'user',
-          'border border-blue-400 text-blue-700 self-start': line.role === 'ai'
+          'border border-blue-400 text-blue-700 self-start': line.role === 'ai',
+          'italic text-gray-500': line.text === '...'
         }"
         class="inline-block px-4 py-2 rounded-xl max-w-[70%] break-words text-base font-medium"
       >
