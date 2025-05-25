@@ -50,3 +50,16 @@ ehr-server/__pycache__/
 __pycache__/
 *.pyc
 
+# Ignore Python .env
+/llm-server/.env
+
+# Also ignore Python virtual environment
+/llm-server/venv/
+
+# Optional: ignore dotnet secrets if needed
+/api-server/appsettings.Development.json
+/api-server/PhysicianAI.Api/bin/
+/api-server/PhysicianAI.Api/obj/
+/api-server/PhysicianAI.Api/appsettings.Development.json
+
+
