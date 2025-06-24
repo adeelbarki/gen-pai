@@ -1,5 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel 
+from PIL import Image
+import io
+import os
 import redis
 import numpy as np
 import openai
@@ -8,6 +11,7 @@ from redis.commands.search.index_definition import IndexDefinition, IndexType
 from redis.commands.search.query import Query as RedisQuery
 from redis.exceptions import ResponseError
 from .config import OPENAI_API_KEY
+from .models.xray_model import predict
 
 app = FastAPI()
 
@@ -112,3 +116,19 @@ async def generate_answer(query: Query):
        "answer": f"✅ [FastAPI] Found similar items for: '{query.question}'",
         "results": similar_items
        }
+
+# --- Endpoint 2: Chest X-ray Classification ---
+@app.get("/classify-xray")
+async def classify_xray():
+    base_dir = os.path.dirname(__file__)
+    image_path = os.path.join(base_dir, "images", "sample03.jpg")
+    image = Image.open(image_path).convert("RGB")
+    label, confidence = predict(image)
+    print({
+        "prediction": label,
+        "confidence": round(confidence, 3)
+    })
+    return {
+        "prediction": label,
+        "confidence": round(confidence, 3)
+    }

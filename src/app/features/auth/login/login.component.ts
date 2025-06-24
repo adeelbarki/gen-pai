@@ -21,7 +21,7 @@ export class LoginComponent {
   async login() {
     try {
       await this.authService.login(this.username, this.password);
-      this.router.navigate(['/dashboard']); // ✅ Redirect to dashboard after login
+      this.router.navigate(['/dashboard']);
     } catch (error: any) {
       this.errorMessage = error.message || 'Login failed!';
     }
