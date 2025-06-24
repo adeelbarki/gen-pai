@@ -1,8 +1,6 @@
 import { Component } from '@angular/core';
-// import { RouterOutlet } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
 import { Router } from '@angular/router';
-// import { NgIf } from '@angular/common';
 import { AmplifyAuthenticatorModule } from '@aws-amplify/ui-angular';
 import { Amplify } from 'aws-amplify';
 import { environment } from '../environments/environment';
