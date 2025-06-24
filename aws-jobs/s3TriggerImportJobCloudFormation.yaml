@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy Lambda, S3 Buckets, IAM Roles, and AWS HealthImaging datastore for DICOM import
+
+Parameters:
+  LambdaRegion:
+    Type: String
+    Default: us-east-1
+    Description: AWS region to deploy Lambda and HealthImaging
+
+Resources:
+
+  InputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: aidoctor-healthimaging-input
+
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: aidoctor-healthimaging-output
+
+  HealthImagingDatastore:
+    Type: AWS::MedicalImaging::Datastore
+    Properties:
+      DatastoreName: ai-doctor-healthimaging-store
+
+  HealthImagingS3AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: HealthImagingS3AccessRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: medical-imaging.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: HealthImagingS3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${InputBucket}
+                  - !Sub arn:aws:s3:::${InputBucket}/*
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub arn:aws:s3:::${OutputBucket}/*
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: TriggerHealthImagingLambdaExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaDICOMImportPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - medical-imaging:StartDICOMImportJob
+                Resource: '*'
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt HealthImagingS3AccessRole.Arn
+
+  TriggerHealthImagingLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: TriggerHealthImagingImportLambda
+      Handler: aws-jobs/s3TriggerHealthImagingImportJobFunc.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.11
+      Environment:
+        Variables:
+          DATASTORE_ID: !Ref HealthImagingDatastore
+          INPUT_BUCKET: !Ref InputBucket
+          OUTPUT_BUCKET: !Ref OutputBucket
+          HEALTHIMAGING_ROLE_ARN: !GetAtt HealthImagingS3AccessRole.Arn
+      Code:
+        CodeUri:
+          RepositoryType: GITHUB
+          Location: https://github.com/adeelbarki/gen-pai
+          Branch: main
+
+  S3Trigger:
+    Type: AWS::S3::BucketNotification
+    Properties:
+      Bucket: !Ref InputBucket
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: .dcm
+            Function: !GetAtt TriggerHealthImagingLambda.Arn
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref TriggerHealthImagingLambda
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::${InputBucket}
+
+Outputs:
+  LambdaFunctionArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt TriggerHealthImagingLambda.Arn
+
+  InputBucketName:
+    Description: S3 bucket for DICOM file uploads
+    Value: !Ref InputBucket
+
+  OutputBucketName:
+    Description: S3 bucket for HealthImaging output
+    Value: !Ref OutputBucket
+
+  HealthImagingDatastoreId:
+    Description: ID of the HealthImaging datastore
+    Value: !Ref HealthImagingDatastore
