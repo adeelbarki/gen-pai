@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Monitors AWS HealthImaging DICOM import completion using EventBridge, triggers a Lambda function,
+  and pushes metadata to SQS.
+
+Parameters:
+  Region:
+    Type: String
+    Default: us-east-1
+
+Resources:
+
+  # --- SQS Queue ---
+  DICOMImportMetadataQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: DICOMImportMetadataQueue
+      VisibilityTimeout: 30
+      MessageRetentionPeriod: 86400
+      ReceiveMessageWaitTimeSeconds: 0
+      MaximumMessageSize: 262144
+
+  # --- IAM Role for Lambda Function ---
+  OnDICOMImportCompleteRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: OnDICOMImportCompleteRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DICOMImportMetadataPushPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt DICOMImportMetadataQueue.Arn
+
+  # --- Lambda Function ---
+  OnDICOMImportCompleteFunc:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: OnDICOMImportCompleteFunc
+      Runtime: python3.11
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt OnDICOMImportCompleteRole.Arn
+      Timeout: 10
+      Code:
+        S3Bucket: YOUR_CODE_BUCKET_PLACEHOLDER
+        S3Key: path/to/your/OnDICOMImportCompleteFunc.zip
+      Environment:
+        Variables:
+          SQS_QUEUE_URL: !Ref DICOMImportMetadataQueue
+
+  # --- EventBridge Rule ---
+  DICOMImportCompletedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: DICOMImportCompletedRule
+      EventPattern:
+        source:
+          - aws.medical-imaging
+        detail-type:
+          - "Import Job Completed"
+      Targets:
+        - Arn: !GetAtt OnDICOMImportCompleteFunc.Arn
+          Id: TargetFunctionV1
+
+  # --- Permission for EventBridge to invoke Lambda ---
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref OnDICOMImportCompleteFunc
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DICOMImportCompletedRule.Arn
