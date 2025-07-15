@@ -25,4 +25,4 @@ def predict(image: Image.Image) -> tuple[str, float]:
 
     label = ["Normal", "Pneumonia"][pred.item()]
     confidence = float(probs[0][pred])
-    return label, confidence
+    return label, round(confidence, 3)
