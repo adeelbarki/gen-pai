@@ -10,21 +10,15 @@ from redis.commands.search.field import TextField, VectorField
 from redis.commands.search.index_definition import IndexDefinition, IndexType
 from redis.commands.search.query import Query as RedisQuery
 from redis.exceptions import ResponseError
-from .config import OPENAI_API_KEY
+from .config import OPENAI_API_KEY, sqs, healthimaging, table, QUEUE_URL, DATASTORE_ID
 from .models.xray_model import predict
-import boto3
+from decimal import Decimal
 import json
 from io import BytesIO
+from datetime import datetime
 import gzip
 
-os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-session = boto3.Session(profile_name="medical-image-user")
-sqs = session.client('sqs', region_name="us-east-1")
-healthimaging = session.client('medical-imaging')
-
-# Constants
-QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/891377377689/DICOMImportMetadataQueue"
-DATASTORE_ID = "d9e0f11e8cc44d49aef0703b89372fcd"
+# os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
 
 app = FastAPI()
@@ -149,6 +143,7 @@ async def classify_xray():
 
 @app.get("/process-job")
 def process_one_job():
+    # Fetch one message from the queue
     messages = sqs.receive_message(
         QueueUrl=QUEUE_URL,
         MaxNumberOfMessages=1,
@@ -158,68 +153,75 @@ def process_one_job():
     if "Messages" not in messages:
         return {"message": "No messages in queue"}
 
-    for msg in messages["Messages"]:
-        body = json.loads(msg["Body"])
-        print("Received:", body)
+    msg = messages["Messages"][0]
+    body = json.loads(msg["Body"])
+    print("Received:", body)
 
-        image_set_id = body.get("imageSetId")
-        if not image_set_id:
-            print("❌ Missing imageSetId in message. Skipping...")
-            sqs.delete_message(
-                QueueUrl=QUEUE_URL,
-                ReceiptHandle=msg["ReceiptHandle"]
-            )
-            return {"error": "Message missing imageSetId"}
-        
-        response = healthimaging.get_image_set_metadata(
-            datastoreId=DATASTORE_ID,
-            imageSetId=image_set_id
-        )
-
-        blob_stream = response["imageSetMetadataBlob"]
-        decompressed_bytes = gzip.decompress(blob_stream.read())
-        metadata_json = json.loads(decompressed_bytes)
-
-        print("Decompressed Metadata:", json.dumps(metadata_json, indent=2))
-
-        series_dict = metadata_json.get("Study", {}).get("Series", {})
-
-        frame_id = None
-
-        for series_uid, series_data in series_dict.items():
-            instances = series_data.get("Instances", {})
-            for instance_uid, instance_data in instances.items():
-                frames = instance_data.get("ImageFrames", [])
-                if frames:
-                    frame_id = frames[0].get("ID")
-                    break
-            if frame_id:
-                break
-
-        if not frame_id:
-            return {"error": "No frame ID found in decompressed metadata"}
-
-        image_response = healthimaging.get_image_frame(
-            datastoreId=DATASTORE_ID,
-            imageSetId=image_set_id,
-            imageFrameInformation={
-                "imageFrameId": frame_id
-            }
-        )
-
-        image_bytes = image_response["imageFrameBlob"].read()
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
-        label, confidence = predict(image)
-
-        # Delete message
+    image_set_id = body.get("imageSetId")
+    if not image_set_id:
+        print("❌ Missing imageSetId in message. Skipping...")
         sqs.delete_message(
             QueueUrl=QUEUE_URL,
             ReceiptHandle=msg["ReceiptHandle"]
         )
+        return {"error": "Message missing imageSetId"}
 
-        return {
+    # Fetch and decompress image set metadata
+    metadata_blob = healthimaging.get_image_set_metadata(
+        datastoreId=DATASTORE_ID,
+        imageSetId=image_set_id
+    )["imageSetMetadataBlob"]
+
+    metadata_json = json.loads(gzip.decompress(metadata_blob.read()))
+    print("Decompressed Metadata:", json.dumps(metadata_json, indent=2))
+
+    # Extract patient ID and frame ID
+    patient_id = metadata_json.get("Patient", {}).get("DICOM", {}).get("PatientID")
+
+    # Extract first available image frame ID
+    frame_id = next(
+        (
+            frame.get("ID")
+            for series in metadata_json.get("Study", {}).get("Series", {}).values()
+            for instance in series.get("Instances", {}).values()
+            for frame in instance.get("ImageFrames", [])
+            if "ID" in frame
+        ),
+        None
+    )
+
+    if not frame_id:
+        return {"error": "No frame ID found in metadata"}
+
+    # Fetch image and run prediction
+    image_bytes = healthimaging.get_image_frame(
+        datastoreId=DATASTORE_ID,
+        imageSetId=image_set_id,
+        imageFrameInformation={"imageFrameId": frame_id}
+    )["imageFrameBlob"].read()
+
+    image = Image.open(BytesIO(image_bytes)).convert("RGB")
+    label, confidence = predict(image)
+
+    # Save to DynamoDB
+    table.put_item(
+        Item={
+            "imageSetId": image_set_id,
+            "patientId": patient_id,
             "prediction": label,
-            "confidence": confidence
+            "confidence": Decimal(str(confidence)),
+            "timestamp": datetime.utcnow().isoformat()
         }
+    )
 
-    return {"message": "Finished processing"}
+    # Clean up processed message
+    sqs.delete_message(
+        QueueUrl=QUEUE_URL,
+        ReceiptHandle=msg["ReceiptHandle"]
+    )
+
+    return {
+        "prediction": label,
+        "confidence": round(confidence, 3),
+        "patientId": patient_id
+    }
