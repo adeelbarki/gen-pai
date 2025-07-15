@@ -18,8 +18,6 @@ from io import BytesIO
 from datetime import datetime
 import gzip
 
-# os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-
 
 app = FastAPI()
 
