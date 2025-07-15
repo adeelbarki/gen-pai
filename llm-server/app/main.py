@@ -17,6 +17,7 @@ import json
 from io import BytesIO
 from datetime import datetime
 import gzip
+from boto3.dynamodb.conditions import Key
 
 
 app = FastAPI()
@@ -222,4 +223,53 @@ def process_one_job():
         "prediction": label,
         "confidence": round(confidence, 3),
         "patientId": patient_id
+    }
+
+@app.get("/image-url/{patient_id}")
+def get_presigned_image_url(patient_id: str):
+    # Step 1: Look up imageSetId using patientId
+    response = table.query(
+        IndexName="patientId-index",  # You must define a GSI on patientId
+        KeyConditionExpression=Key("patientId").eq(patient_id)
+    )
+    
+    if not response["Items"]:
+        return {"error": "Patient ID not found"}
+    
+    image_set_id = response["Items"][0]["imageSetId"]
+
+    metadata_blob = healthimaging.get_image_set_metadata(
+        datastoreId=DATASTORE_ID,
+        imageSetId=image_set_id
+    )["imageSetMetadataBlob"]
+
+    metadata_json = json.loads(gzip.decompress(metadata_blob.read()))
+
+    frame_id = next(
+        (
+            frame.get("ID")
+            for series in metadata_json.get("Study", {}).get("Series", {}).values()
+            for instance in series.get("Instances", {}).values()
+            for frame in instance.get("ImageFrames", [])
+            if "ID" in frame
+        ),
+        None
+    )
+
+    if not frame_id:
+        return {"error": "No frame found"}
+    
+    presigned = healthimaging.get_image_frame(
+        datastoreId=DATASTORE_ID,
+        imageSetId=image_set_id,
+        imageFrameInformation={
+            "imageFrameId": frame_id
+        },
+        # preSignedUrl=True
+    )
+
+    return {
+        "imageSetId": image_set_id,
+        "frameId": frame_id,
+        # "presignedUrl": presigned["imageFrameBlob"].geturl()
     }
