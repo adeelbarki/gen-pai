@@ -278,7 +278,7 @@ def get_presigned_image_url(patient_id: str):
     image.save(buffer, format="JPEG")
     buffer.seek(0)
 
-    s3_key = f"xrays/{image_set_id}.jpeg"
+    s3_key = f"{patient_id}/xrays/{image_set_id}.jpeg"
     s3.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=buffer, ContentType="image/jpeg")
 
     signed_url = s3.generate_presigned_url(
