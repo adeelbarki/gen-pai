@@ -13,6 +13,7 @@ import { CommonModule } from '@angular/common';
 
 export class StudyImageViewerComponent implements OnChanges {
   @Input() imageName: string | null = null;
+  @Input() patientId: string | null = null
   presignedUrl: string | null = null;
   loading = false;
   error: string | null = null;
@@ -20,7 +21,7 @@ export class StudyImageViewerComponent implements OnChanges {
   constructor(private http: HttpClient) {}
 
   ngOnChanges() {
-    if (this.imageName) {
+    if (this.imageName && this.patientId) {
       this.fetchPresignedUrl(this.imageName);
     }
   }
@@ -30,7 +31,7 @@ export class StudyImageViewerComponent implements OnChanges {
     this.presignedUrl = null;
     this.error = null;
 
-    this.http.get<{ url: string }>(`http://localhost:5000/image-url/54ade882-3ada-4442-b66e-740b5a65e014`)
+    this.http.get<{ url: string }>(`http://localhost:5000/image-url/${this.patientId}`)
       .subscribe({
         next: (res) => {
           this.presignedUrl = res.url;
