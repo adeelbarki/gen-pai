@@ -1,23 +1,30 @@
 from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel 
 from PIL import Image
-import io
-import os
-import redis
+from io import BytesIO 
+import os, redis, openai
 import numpy as np
-import openai
 from redis.commands.search.field import TextField, VectorField
 from redis.commands.search.index_definition import IndexDefinition, IndexType
 from redis.commands.search.query import Query as RedisQuery
 from redis.exceptions import ResponseError
-from .config import OPENAI_API_KEY, sqs, healthimaging, table, QUEUE_URL, DATASTORE_ID
 from .models.xray_model import predict
 from decimal import Decimal
-import json
+import json, gzip 
+from boto3.dynamodb.conditions import Key
 from io import BytesIO
 from datetime import datetime
-import gzip
-from boto3.dynamodb.conditions import Key
+from .config import (
+    OPENAI_API_KEY,
+    sqs,
+    healthimaging,
+    table,
+    QUEUE_URL,
+    DATASTORE_ID,
+    s3,
+    BUCKET_NAME
+)
+
 
 
 app = FastAPI()
@@ -109,6 +116,7 @@ def query_similar_items(query_text, top_k=3):
         })
 
     return matches
+
 
 # ---------FastAPI route---
 
@@ -227,9 +235,9 @@ def process_one_job():
 
 @app.get("/image-url/{patient_id}")
 def get_presigned_image_url(patient_id: str):
-    # Step 1: Look up imageSetId using patientId
+    
     response = table.query(
-        IndexName="patientId-index",  # You must define a GSI on patientId
+        IndexName="patientId-index",
         KeyConditionExpression=Key("patientId").eq(patient_id)
     )
     
@@ -259,17 +267,24 @@ def get_presigned_image_url(patient_id: str):
     if not frame_id:
         return {"error": "No frame found"}
     
-    presigned = healthimaging.get_image_frame(
+    image_bytes = healthimaging.get_image_frame(
         datastoreId=DATASTORE_ID,
         imageSetId=image_set_id,
-        imageFrameInformation={
-            "imageFrameId": frame_id
-        },
-        # preSignedUrl=True
+        imageFrameInformation={"imageFrameId": frame_id}
+    )["imageFrameBlob"].read()
+
+    image = Image.open(BytesIO(image_bytes)).convert("RGB")
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+    buffer.seek(0)
+
+    s3_key = f"{patient_id}/xrays/{image_set_id}.jpeg"
+    s3.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=buffer, ContentType="image/jpeg")
+
+    signed_url = s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": BUCKET_NAME, "Key": s3_key},
+        ExpiresIn=3600
     )
 
-    return {
-        "imageSetId": image_set_id,
-        "frameId": frame_id,
-        # "presignedUrl": presigned["imageFrameBlob"].geturl()
-    }
+    return {"url": signed_url}

@@ -1,0 +1,9 @@
+<div class="w-full h-full flex justify-center items-center">
+  <div *ngIf="loading" class="text-gray-500 italic">Loading image...</div>
+  <div *ngIf="error" class="text-red-500">{{ error }}</div>
+  <img *ngIf="presignedUrl" [src]="presignedUrl" alt="Study Image"
+       class="max-w-full max-h-[70vh] rounded shadow" />
+  <div *ngIf="!presignedUrl && !loading && !error" class="text-gray-400 italic">
+    Select an image to view
+  </div>
+</div>
