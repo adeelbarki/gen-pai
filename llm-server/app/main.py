@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel 
 from PIL import Image
 from io import BytesIO 
@@ -62,23 +63,25 @@ async def generate_answer(query: Query):
     # Add user's message to history
     chat_histories[session_id].append({"role": "user", "content": query.message})
     
-    try:
-        response = openai.chat.completions.create(
-            model="gpt-4",  # or "gpt-3.5-turbo"
-            messages=chat_histories[session_id]
-        )
+    def stream_response():
+        full_reply = ""
+        try:
+            stream = openai.chat.completions.create(
+                model="gpt-4",
+                messages=chat_histories[session_id],
+                stream=True
+            )
+            for chunk in stream:
+                content = getattr(chunk.choices[0].delta, "content", "")
+                if isinstance(content, str):
+                    full_reply += content
+                    yield content
+            # Save assistant reply to history
+            chat_histories[session_id].append({"role": "assistant", "content": full_reply})
+        except Exception as e:
+            yield f"[Error]: {str(e)}"
 
-        answer = response.choices[0].message.content
-
-
-        return {
-           "session_id": session_id,
-            "question": query.message,
-            "answer": answer
-        }
-
-    except Exception as e:
-        return {"error": str(e)}
+    return StreamingResponse(stream_response(), media_type="text/plain")
 
 # --- Endpoint 2: Chest X-ray Classification ---
 @app.get("/classify-xray")
