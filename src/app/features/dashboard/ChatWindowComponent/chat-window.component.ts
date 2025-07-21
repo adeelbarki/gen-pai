@@ -30,24 +30,23 @@ export class ChatWindowComponent {
 
   sendMessage() {
     this.chatLog.push({ role: 'user', text: this.message });
-this.chatLog.push({ role: 'ai', text: '' });
+    this.chatLog.push({ role: 'ai', text: '' });
 
-let aiIndex = this.chatLog.length - 1;
+    let aiIndex = this.chatLog.length - 1;
 
-this.chatService.sendMessage(this.message, "abc123").subscribe({
-  next: (chunk: string) => {
-    this.chatLog[aiIndex].text += chunk;
-    this.scrollToBottom();
-  },
-  error: (err) => {
-    console.error("Streaming error:", err);
-    this.chatLog[aiIndex].text += "\n[Error receiving reply]";
-  },
-  complete: () => {
-    this.message = '';
-  }
-});
-   
+    this.chatService.sendMessage(this.message, "abc123").subscribe({
+    next: (chunk: string) => {
+      this.chatLog[aiIndex].text += chunk;
+      this.scrollToBottom();
+    },
+    error: (err) => {
+      console.error("Streaming error:", err);
+      this.chatLog[aiIndex].text += "\n[Error receiving reply]";
+    },
+    complete: () => {
+      this.message = '';
+    }
+    });
   }
   
   autoResize(event: Event) {
