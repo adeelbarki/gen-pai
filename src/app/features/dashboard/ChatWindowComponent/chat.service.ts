@@ -12,8 +12,11 @@ export class ChatService {
 
     constructor(private http: HttpClient) {}
 
-    sendMessage(text: string): Observable<ChatResponse> {
-        const body = { text }
-        return this.http.post<ChatResponse>(this.apiUrl, body)
+    sendMessage(text: string, sessionId: string = "default-session"): Observable<ChatResponse> {
+       const body = {
+            sessionId: sessionId,
+            text: text
+        };
+        return this.http.post<ChatResponse>(this.apiUrl, body);
     }
 }

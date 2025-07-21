@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel 
 from PIL import Image
 from io import BytesIO 
@@ -31,26 +31,49 @@ app = FastAPI()
 
 openai.api_key = OPENAI_API_KEY
 
+chat_histories = {}
+
 
 class Query(BaseModel):
-    question: str
+    session_id: str
+    message: str
 
 # --- Endpoint 1: Opneai Question and generate asnwer ---
+
+# @app.post("/debug")
+# async def debug_payload(request: Request):
+#     body = await request.json()
+#     return {"received": body}
+
 @app.post("/generate-answer")
 async def generate_answer(query: Query):
+
+    print(query)
+    session_id = query.session_id
+    
+    # Initialize history if it's a new session
+    if session_id not in chat_histories:
+        chat_histories[session_id] = [
+            {"role": "system", "content": "You are a helpful assistant."}
+        ]
+
+    
+
+    # Add user's message to history
+    chat_histories[session_id].append({"role": "user", "content": query.message})
+    
     try:
         response = openai.chat.completions.create(
             model="gpt-4",  # or "gpt-3.5-turbo"
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": query.question}
-            ]
+            messages=chat_histories[session_id]
         )
 
         answer = response.choices[0].message.content
 
+
         return {
-            "question": query.question,
+           "session_id": session_id,
+            "question": query.message,
             "answer": answer
         }
 

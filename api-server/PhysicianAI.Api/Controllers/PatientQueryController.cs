@@ -20,10 +20,16 @@ namespace PhysicianAI.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> QueryPatient([FromBody] UserQuestion question)
         {
-            var json = JsonSerializer.Serialize(new { question = question.Text });
+            var payload = new {
+                session_id = question.SessionId,
+                message = question.Text
+            };
+            var json = JsonSerializer.Serialize(payload);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync("http://localhost:5000/generate-answer", content);
+            // var response = await _httpClient.PostAsync("http://localhost:5000/debug", content);
+
 
             if (response.IsSuccessStatusCode)
             {
@@ -37,6 +43,7 @@ namespace PhysicianAI.Api.Controllers
     }
     public class UserQuestion
     {
+        public required string SessionId { get; set; }
         public required string Text { get; set; }
     }
 
