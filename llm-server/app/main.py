@@ -30,6 +30,91 @@ from .config import (
 
 app = FastAPI()
 
+r = redis.Redis(
+    host='localhost',
+    port=6379,
+    decode_responses=False,
+)
+
+INDEX_NAME = "symptom_index"
+VECTOR_DIM = 1536
+VECTOR_FIELD_NAME = "embedding"
+DISTANCE_METRIC = "COSINE"
+
+def ensure_symptom_index_exists(r):
+    try:
+        r.ft(INDEX_NAME).info()
+        print(f"✅ Index '{INDEX_NAME}' already exists.")
+    except ResponseError as e:
+        if "no such index" in str(e).lower():
+            print(f"⚠️ Index '{INDEX_NAME}' not found. Creating it now...")
+            r.ft(INDEX_NAME).create_index(
+                fields=[
+                    TextField("symptom"),
+                    TextField("questions"),
+                    VectorField("embedding", "FLAT", {
+                        "TYPE": "FLOAT32",
+                        "DIM": VECTOR_DIM,
+                        "DISTANCE_METRIC": DISTANCE_METRIC
+                    })
+                ],
+                definition=IndexDefinition(prefix=["symptom:"], index_type=IndexType.HASH)
+            )
+            print(f"✅ Created index '{INDEX_NAME}'")
+        else:
+            raise e
+
+
+def load_symptom_question_data():
+    base_dir = os.path.dirname(__file__)
+    filepath = os.path.join(base_dir, "data", "symptom_questions.json")
+    with open(filepath, "r", encoding="utf-8") as f:
+        return json.load(f)
+    
+symptom_questions = load_symptom_question_data()
+
+def get_embeddings(text: str, model: str = "text-embedding-3-small") -> np.ndarray:
+    try:
+        response = openai.embeddings.create(
+            input=[text],
+            model=model
+        )
+        return np.array(response.data[0].embedding, dtype=np.float32)
+    except Exception as e:
+        print(f"Embedding error: {e}")
+        return np.zeros(1536, dtype=np.float32)
+
+for entry in symptom_questions:
+    emb = get_embeddings(entry["symptom"])
+    r.hset(f"symptom:{entry['symptom']}", mapping={
+        "symptom": entry["symptom"],
+        "questions": json.dumps(entry["questions"]),
+        "embedding": emb.tobytes()
+    })
+
+def retrieve_symptom_questions(symptom):
+    query_vector = get_embeddings(symptom).astype(np.float32).tobytes()
+    base_query = f'*=>[KNN 1 @embedding $vec_param AS score]'
+    query = (
+        RedisQuery(base_query)
+        .return_fields("symptom", "questions", "score")
+        .sort_by("score")
+        .dialect(2)
+    )
+    params = {"vec_param": query_vector}
+    result = r.ft("symptom_index").search(query, query_params=params)
+    if result.docs:
+        return json.loads(result.docs[0].questions)
+    return []
+
+def extract_symptom(user_input: str) -> str:
+    # Very basic: use keyword match (can be improved with NLP later)
+    symptom_keywords = ["cough", "fever", "sore throat", "headache", "fatigue", "shortness of breath"]
+    for keyword in symptom_keywords:
+        if keyword.lower() in user_input.lower():
+            return keyword
+    return ""
+
 openai.api_key = OPENAI_API_KEY
 
 chat_histories = {}
@@ -41,51 +126,91 @@ class Query(BaseModel):
 
 # --- Endpoint 1: Opneai Question and generate asnwer ---
 
-# @app.post("/debug")
-# async def debug_payload(request: Request):
-#     body = await request.json()
-#     return {"received": body}
-
 @app.post("/generate-answer")
 async def generate_answer(query: Query):
-
-    print(query)
+    ensure_symptom_index_exists(r)
     session_id = query.session_id
-    
-    # Initialize history if it's a new session
+
     if session_id not in chat_histories:
         chat_histories[session_id] = [
-           {
+            {
                 "role": "system",
                 "content": (
-                "You are a helpful assistant.\n"
-                "Respond using Markdown formatting:\n"
-                "- Use headings for major sections\n"
-                "- Use **bold** for key points\n"
-                "- Use bullet points where helpful\n"
-                "- Write in clear, concise language"
+                    "You are a helpful assistant.\n"
+                    "Respond using Markdown formatting:\n"
+                    "- Use headings for major sections\n"
+                    "- Use **bold** for key points\n"
+                    "- Use bullet points where helpful\n"
+                    "- Write in clear, concise language"
+                )
+            },
+            {
+                "role": "system",
+                "content": (
+                    "You are a compassionate and intelligent virtual doctor assistant. "
+                    "Your task is to take a detailed history from the patient, asking one question at a time like a real physician.\n\n"
+                    "Follow this order:\n"
+                    "1. Start with the chief complaint.\n"
+                    "2. Ask about the history of present illness (onset, duration, severity, triggers).\n"
+                    "3. Ask associated symptoms (e.g. fever, fatigue, shortness of breath).\n"
+                    "4. Ask about past medical history.\n"
+                    "5. Ask about medications, allergies, lifestyle, recent travel, or exposures.\n"
+                    "6. Be concise, empathetic, and avoid repeating questions. Stop when you've collected enough history.\n\n"
+                    "Only ask one question at a time. Do not jump to conclusions or give advice yet. Just collect information."
                 )
             }
         ]
 
-    # Add user's message to history
+    # Add user's message to chat history
     chat_histories[session_id].append({"role": "user", "content": query.message})
-    
+
     def stream_response():
         full_reply = ""
+
         try:
+            # 1. Detect symptom from user input
+            user_symptom = extract_symptom(query.message)
+
+            # 2. Retrieve symptom-specific questions using RAG
+            if user_symptom:
+                retrieved_questions = retrieve_symptom_questions(user_symptom)
+
+                if retrieved_questions:
+                    question_list = "\n".join([f"- {q}" for q in retrieved_questions])
+                    context_msg = {
+                        "role": "system",
+                        "content": (
+                            f"You are helping take a history from a patient who reported **{user_symptom}**.\n"
+                            f"Use these symptom-specific questions as guidance:\n{question_list}\n\n"
+                            f"Ask them **one at a time**, based on what the user has already said. Be natural and do not repeat questions."
+                        )
+                    }
+
+                    # Insert symptom-specific RAG context only once (not every time)
+                    # Only insert if not already present in session history
+                    if not any(
+                        context_msg["content"] in entry["content"]
+                        for entry in chat_histories[session_id]
+                        if entry["role"] == "system"
+                    ):
+                        chat_histories[session_id].insert(2, context_msg)
+
+            # 3. Call OpenAI with streaming
             stream = openai.chat.completions.create(
                 model="gpt-4",
                 messages=chat_histories[session_id],
                 stream=True
             )
+
             for chunk in stream:
                 content = getattr(chunk.choices[0].delta, "content", "")
                 if isinstance(content, str):
                     full_reply += content
                     yield content
-            # Save assistant reply to history
+
+            # 4. Save assistant's reply to history
             chat_histories[session_id].append({"role": "assistant", "content": full_reply})
+
         except Exception as e:
             yield f"[Error]: {str(e)}"
 
