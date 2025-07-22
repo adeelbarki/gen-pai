@@ -3,6 +3,8 @@ import { ChatService } from './chat.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ChatResponse } from './chat.model';
+import { MarkdownModule } from 'ngx-markdown';
+
 
 @Component({
   selector: 'app-chat-window',
@@ -11,7 +13,9 @@ import { ChatResponse } from './chat.model';
   imports: [
       CommonModule,
       FormsModule,
+      MarkdownModule
     ],
+    styleUrl: './chat-window.component.css'
 })
 
 export class ChatWindowComponent {

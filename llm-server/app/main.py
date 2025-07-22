@@ -55,10 +55,18 @@ async def generate_answer(query: Query):
     # Initialize history if it's a new session
     if session_id not in chat_histories:
         chat_histories[session_id] = [
-            {"role": "system", "content": "You are a helpful assistant."}
+           {
+                "role": "system",
+                "content": (
+                "You are a helpful assistant.\n"
+                "Respond using Markdown formatting:\n"
+                "- Use headings for major sections\n"
+                "- Use **bold** for key points\n"
+                "- Use bullet points where helpful\n"
+                "- Write in clear, concise language"
+                )
+            }
         ]
-
-    
 
     # Add user's message to history
     chat_histories[session_id].append({"role": "user", "content": query.message})
