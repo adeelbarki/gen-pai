@@ -1,14 +1,12 @@
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from .redis_config import r, ensure_symptom_index_exists
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel 
 from PIL import Image
 from io import BytesIO 
-import os, redis, openai
+import os, openai
 import numpy as np
-from redis.commands.search.field import TextField, VectorField
-from redis.commands.search.index_definition import IndexDefinition, IndexType
-from redis.commands.search.query import Query as RedisQuery
-from redis.exceptions import ResponseError
 from .models.xray_model import predict
 from decimal import Decimal
 import json, gzip 
@@ -26,44 +24,8 @@ from .config import (
     BUCKET_NAME
 )
 
-
-
-app = FastAPI()
-
-r = redis.Redis(
-    host='localhost',
-    port=6379,
-    decode_responses=False,
-)
-
-INDEX_NAME = "symptom_index"
-VECTOR_DIM = 1536
-VECTOR_FIELD_NAME = "embedding"
-DISTANCE_METRIC = "COSINE"
-
-def ensure_symptom_index_exists(r):
-    try:
-        r.ft(INDEX_NAME).info()
-        print(f"✅ Index '{INDEX_NAME}' already exists.")
-    except ResponseError as e:
-        if "no such index" in str(e).lower():
-            print(f"⚠️ Index '{INDEX_NAME}' not found. Creating it now...")
-            r.ft(INDEX_NAME).create_index(
-                fields=[
-                    TextField("symptom"),
-                    TextField("questions"),
-                    VectorField("embedding", "FLAT", {
-                        "TYPE": "FLOAT32",
-                        "DIM": VECTOR_DIM,
-                        "DISTANCE_METRIC": DISTANCE_METRIC
-                    })
-                ],
-                definition=IndexDefinition(prefix=["symptom:"], index_type=IndexType.HASH)
-            )
-            print(f"✅ Created index '{INDEX_NAME}'")
-        else:
-            raise e
-
+openai.api_key = OPENAI_API_KEY
+chat_histories = {}
 
 def load_symptom_question_data():
     base_dir = os.path.dirname(__file__)
@@ -73,30 +35,21 @@ def load_symptom_question_data():
     
 symptom_questions = load_symptom_question_data()
 
+
 def get_embeddings(text: str, model: str = "text-embedding-3-small") -> np.ndarray:
     try:
-        response = openai.embeddings.create(
-            input=[text],
-            model=model
-        )
+        response = openai.embeddings.create(input=[text], model=model)
         return np.array(response.data[0].embedding, dtype=np.float32)
     except Exception as e:
         print(f"Embedding error: {e}")
         return np.zeros(1536, dtype=np.float32)
+    
+def retrieve_symptom_questions(symptom: str):
+    from redis.commands.search.query import Query as RedisQuery
 
-for entry in symptom_questions:
-    emb = get_embeddings(entry["symptom"])
-    r.hset(f"symptom:{entry['symptom']}", mapping={
-        "symptom": entry["symptom"],
-        "questions": json.dumps(entry["questions"]),
-        "embedding": emb.tobytes()
-    })
-
-def retrieve_symptom_questions(symptom):
     query_vector = get_embeddings(symptom).astype(np.float32).tobytes()
-    base_query = f'*=>[KNN 1 @embedding $vec_param AS score]'
     query = (
-        RedisQuery(base_query)
+        RedisQuery('*=>[KNN 1 @embedding $vec_param AS score]')
         .return_fields("symptom", "questions", "score")
         .sort_by("score")
         .dialect(2)
@@ -108,27 +61,38 @@ def retrieve_symptom_questions(symptom):
     return []
 
 def extract_symptom(user_input: str) -> str:
-    # Very basic: use keyword match (can be improved with NLP later)
     symptom_keywords = ["cough", "fever", "sore throat", "headache", "fatigue", "shortness of breath"]
     for keyword in symptom_keywords:
         if keyword.lower() in user_input.lower():
             return keyword
     return ""
 
-openai.api_key = OPENAI_API_KEY
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ensure_symptom_index_exists()
 
-chat_histories = {}
+    for entry in symptom_questions:
+        key = f"symptom:{entry['symptom']}"
+        if not r.exists(key):
+            emb = get_embeddings(entry["symptom"])
+            r.hset(key, mapping={
+                "symptom": entry["symptom"],
+                "questions": json.dumps(entry["questions"]),
+                "embedding": emb.tobytes()
+            })
+    yield
 
+
+app = FastAPI(lifespan=lifespan)
+    
 
 class Query(BaseModel):
     session_id: str
     message: str
 
 # --- Endpoint 1: Opneai Question and generate asnwer ---
-
 @app.post("/generate-answer")
 async def generate_answer(query: Query):
-    ensure_symptom_index_exists(r)
     session_id = query.session_id
 
     if session_id not in chat_histories:
