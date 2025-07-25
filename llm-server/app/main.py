@@ -23,7 +23,7 @@ from .config import (
     s3,
     BUCKET_NAME
 )
-from .services import (
+from app.services.chat_services import (
     symptom_questions,
     get_embeddings, 
     extract_symptom,
@@ -167,7 +167,6 @@ async def classify_xray():
 # --- Endpoint 3: Fetch DICOM xray data from sqs queue and identify penumunia and store in dynamodb ---
 @app.get("/process-job")
 def process_one_job():
-    # Fetch one message from the queue
     messages = sqs.receive_message(
         QueueUrl=QUEUE_URL,
         MaxNumberOfMessages=1,
