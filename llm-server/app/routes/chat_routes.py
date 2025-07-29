@@ -4,35 +4,34 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import AsyncIterator
+
 from app.services.chat_services import extract_symptom, retrieve_symptom_questions
 from ..config import OPENAI_API_KEY
 
 from langchain_openai import ChatOpenAI
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain.callbacks import AsyncIteratorCallbackHandler
-from langchain.memory import ConversationBufferMemory
+from langchain.memory import ConversationSummaryBufferMemory
 
 router = APIRouter()
 
-# chat_histories = {}
-memories: dict[str, ConversationBufferMemory] = {}
+LLM = ChatOpenAI(model="gpt-4o")
+
+memories: dict[str, ConversationSummaryBufferMemory] = {}
 
 class Query(BaseModel):
     session_id: str
     message: str
 
 
-@router.post("/generate-answer")
-async def generate_answer(query: Query):
-    session_id = query.session_id
-
-    # Initialize or load chat history
+def get_memory(session_id: str) -> ConversationSummaryBufferMemory:
     if session_id not in memories:
-        memories[session_id] = ConversationBufferMemory(
+        memory = ConversationSummaryBufferMemory(
+            llm=LLM,
+            max_token_limit=6_000,
             return_messages=True,
-            max_token_limit=8_000
         )
-        memories[session_id].chat_memory.messages.extend([
+        memory.chat_memory.messages.extend([
             SystemMessage(
                 content=(
                     "You are a helpful assistant.\n"
@@ -58,8 +57,15 @@ async def generate_answer(query: Query):
                 )
             )
         ])
+        memories[session_id] = memory
 
-    memory = memories[session_id] 
+    return memories[session_id]
+
+
+@router.post("/generate-answer")
+async def generate_answer(query: Query):
+    session_id = query.session_id
+    memory = get_memory(session_id)
 
     # Extract symptom
     user_symptom = extract_symptom(query.message)
@@ -82,7 +88,7 @@ async def generate_answer(query: Query):
     # Add user's latest message to history
     memory.chat_memory.add_message(HumanMessage(content=query.message))
 
-    # Async callback for streaming
+    # Streaming response
     async def streaming_generator() -> AsyncIterator[str]:
         handler = AsyncIteratorCallbackHandler()
         llm = ChatOpenAI(
@@ -91,7 +97,6 @@ async def generate_answer(query: Query):
             callbacks=[handler]
         )
 
-        # Streaming response asynchronously
         async def task():
             try:
                 response = await llm.ainvoke(memory.chat_memory.messages)
@@ -103,5 +108,6 @@ async def generate_answer(query: Query):
         asyncio.create_task(task())
         async for token in handler.aiter():
             yield token
+
 
     return StreamingResponse(streaming_generator(), media_type="text/event-stream")
