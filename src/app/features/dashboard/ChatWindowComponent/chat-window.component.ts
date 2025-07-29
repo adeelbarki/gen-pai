@@ -3,6 +3,8 @@ import { ChatService } from './chat.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ChatResponse } from './chat.model';
+import { MarkdownModule } from 'ngx-markdown';
+
 
 @Component({
   selector: 'app-chat-window',
@@ -11,7 +13,9 @@ import { ChatResponse } from './chat.model';
   imports: [
       CommonModule,
       FormsModule,
+      MarkdownModule
     ],
+    styleUrl: './chat-window.component.css'
 })
 
 export class ChatWindowComponent {
@@ -29,57 +33,26 @@ export class ChatWindowComponent {
 
 
   sendMessage() {
-    if(!this.message.trim()) return;
-
     this.chatLog.push({ role: 'user', text: this.message });
+    this.chatLog.push({ role: 'ai', text: '' });
 
-      this.loading = true;
-      let loadingIndex = this.chatLog.length;
-      this.chatLog.push({ role: 'ai', text: '...' });
+    let aiIndex = this.chatLog.length - 1;
 
-      let dotCount = 1;
-      this.loadingInterval = setInterval(() => {
-      let dots = '.'.repeat(dotCount);
-      // this.chatLog[loadingIndex].text = `AI is thinking${dots}`;
-      dotCount = (dotCount % 3) + 1;
-        }, 100);
-
-    this.chatService.sendMessage(this.message).subscribe( {
-
-    next: (response: ChatResponse) => {
-    clearInterval(this.loadingInterval);
-    this.loading = false;
-
-    this.chatLog.pop();
-
-    this.chatLog.push({ role: 'ai', text: response.answer });
-
-    if (response.results && response.results.length > 0) {
-      response.results.forEach((item: any, index: number) => {
-        const itemText = `#${index + 1}: ${item.name} (${item.score.toFixed(4)}) — ${item.description}`;
-        this.chatLog.push({ role: 'ai', text: itemText });
-      });
+    this.chatService.sendMessage(this.message, "abc123").subscribe({
+    next: (chunk: string) => {
+      this.chatLog[aiIndex].text += chunk;
+      this.scrollToBottom();
+    },
+    error: (err) => {
+      console.error("Streaming error:", err);
+      this.chatLog[aiIndex].text += "\n[Error receiving reply]";
+    },
+    complete: () => {
+      this.message = '';
     }
-
-    this.message = '';
-
-    const textarea = document.querySelector('textarea');
-    if (textarea) {
-      textarea.style.height = 'auto';
-    }
-    setTimeout(() => this.scrollToBottom(), 0);
-  },
-  error: (error) => {
-    console.error('Error sending message:', error);
-    clearInterval(this.loadingInterval);
-    this.loading = false;
-  },
-  complete: () => {
-    // Optional: you can log or handle something on completion
+    });
   }
-});
-   
-  }
+  
   autoResize(event: Event) {
   const textarea = event.target as HTMLTextAreaElement;
   textarea.style.height = 'auto';
