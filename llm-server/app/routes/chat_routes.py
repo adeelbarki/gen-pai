@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from typing import AsyncIterator
 
 from app.services.chat_services import extract_symptom, retrieve_symptom_questions
+from app.services.rag_chain import rag_chain
 from ..config import OPENAI_API_KEY
 
 from langchain_openai import ChatOpenAI
@@ -68,25 +69,13 @@ async def generate_answer(query: Query):
     memory = get_memory(session_id)
 
     # Extract symptom
-    user_symptom = extract_symptom(query.message)
+    user_symptom = extract_symptom(query.message) or "unspecified"
 
-    # Inject RAG symptom questions
-    if user_symptom:
-        qs = retrieve_symptom_questions(user_symptom)
-        if qs:
-            rag_msg = SystemMessage(content=(
-                f"You are helping take a history from a patient who reported **{user_symptom}**.\n"
-                f"Use these symptom-specific questions as guidance:\n"
-                + "\n".join(f"- {q}" for q in qs)
-                + "\n\nAsk them **one at a time**, based on what the user has already said. "
-                  "Be natural and do not repeat questions."
-            ))
-            if all(rag_msg.content != m.content for m in memory.chat_memory.messages
-                   if isinstance(m, SystemMessage)):
-                memory.chat_memory.messages.insert(2, rag_msg)
-
-    # Add user's latest message to history
-    memory.chat_memory.add_message(HumanMessage(content=query.message))
+    # Convert chat history to readable text
+    history = "\n".join(
+        f"{msg.type.upper()}: {msg.content}" for msg in memory.chat_memory.messages
+        if isinstance(msg, (SystemMessage, HumanMessage, AIMessage))
+    )
 
     # Streaming response
     async def streaming_generator() -> AsyncIterator[str]:
@@ -99,7 +88,12 @@ async def generate_answer(query: Query):
 
         async def task():
             try:
-                response = await llm.ainvoke(memory.chat_memory.messages)
+                response = await rag_chain.ainvoke({
+                     "symptom": user_symptom,
+                     "history": history
+                },
+                config={"callbacks": [handler]}
+                )
                 memory.chat_memory.add_message(AIMessage(content=response.content))
             except Exception as e:
                 await handler.on_llm_error(e)
