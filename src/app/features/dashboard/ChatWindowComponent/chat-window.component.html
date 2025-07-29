@@ -24,7 +24,10 @@
         }"
         class="inline-block px-4 py-2 rounded-xl max-w-[70%] break-words text-base font-medium"
       >
-        {{ line.text }}
+        <ng-container *ngIf="line.role === 'ai'; else plainText">
+          <markdown [data]="line.text"></markdown>
+        </ng-container>
+        <ng-template #plainText>{{ line.text }}</ng-template>
       </div>
     </div>
   </div>

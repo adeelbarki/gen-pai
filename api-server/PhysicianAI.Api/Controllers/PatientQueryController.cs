@@ -18,25 +18,36 @@ namespace PhysicianAI.Api.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> QueryPatient([FromBody] UserQuestion question)
+        public async Task QueryPatient([FromBody] UserQuestion question)
         {
-            var json = JsonSerializer.Serialize(new { question = question.Text });
+            var payload = new {
+                session_id = question.SessionId,
+                message = question.Text
+            };
+            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions {
+                PropertyNamingPolicy = null
+            });
+
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync("http://localhost:5000/generate-answer", content);
-
-            if (response.IsSuccessStatusCode)
+            var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost:5000/generate-answer")
             {
-                var fastapiResult = await response.Content.ReadAsStringAsync();
-                return Ok(fastapiResult);
-            }
-            else {
-                return StatusCode((int)response.StatusCode, "Failed to get response from LLM service");
-            }
+                Content = content
+            };
+
+            var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+
+            Response.ContentType = "text/plain";
+            Response.StatusCode = (int)response.StatusCode;
+
+            using var responseStream = await response.Content.ReadAsStreamAsync();
+            await responseStream.CopyToAsync(Response.Body);
         }
     }
     public class UserQuestion
     {
+        public required string SessionId { get; set; }
         public required string Text { get; set; }
     }
 

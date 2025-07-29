@@ -5,6 +5,7 @@ import { AppComponent } from './app.component';
 import { AmplifyAuthenticatorModule } from '@aws-amplify/ui-angular';
 
 
+
 @NgModule({
   declarations: [
     AppComponent
