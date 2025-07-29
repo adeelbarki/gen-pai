@@ -14,7 +14,8 @@ from langchain.memory import ConversationBufferMemory
 
 router = APIRouter()
 
-chat_histories = {}
+# chat_histories = {}
+memories: dict[str, ConversationBufferMemory] = {}
 
 class Query(BaseModel):
     session_id: str
@@ -26,8 +27,12 @@ async def generate_answer(query: Query):
     session_id = query.session_id
 
     # Initialize or load chat history
-    if session_id not in chat_histories:
-        chat_histories[session_id] = [
+    if session_id not in memories:
+        memories[session_id] = ConversationBufferMemory(
+            return_messages=True,
+            max_token_limit=8_000
+        )
+        memories[session_id].chat_memory.messages.extend([
             SystemMessage(
                 content=(
                     "You are a helpful assistant.\n"
@@ -52,32 +57,30 @@ async def generate_answer(query: Query):
                     "Only ask one question at a time. Do not jump to conclusions or give advice yet. Just collect information."
                 )
             )
-        ]
+        ])
+
+    memory = memories[session_id] 
 
     # Extract symptom
     user_symptom = extract_symptom(query.message)
 
     # Inject RAG symptom questions
     if user_symptom:
-        retrieved_questions = retrieve_symptom_questions(user_symptom)
-        if retrieved_questions:
-            question_list = "\n".join([f"- {q}" for q in retrieved_questions])
-            rag_context = SystemMessage(
-                content=(
-                    f"You are helping take a history from a patient who reported **{user_symptom}**.\n"
-                    f"Use these symptom-specific questions as guidance:\n{question_list}\n\n"
-                    f"Ask them **one at a time**, based on what the user has already said. Be natural and do not repeat questions."
-                )
-            )
-            if not any(
-                rag_context.content in msg.content
-                for msg in chat_histories[session_id]
-                if isinstance(msg, SystemMessage)
-            ):
-                chat_histories[session_id].insert(2, rag_context)
+        qs = retrieve_symptom_questions(user_symptom)
+        if qs:
+            rag_msg = SystemMessage(content=(
+                f"You are helping take a history from a patient who reported **{user_symptom}**.\n"
+                f"Use these symptom-specific questions as guidance:\n"
+                + "\n".join(f"- {q}" for q in qs)
+                + "\n\nAsk them **one at a time**, based on what the user has already said. "
+                  "Be natural and do not repeat questions."
+            ))
+            if all(rag_msg.content != m.content for m in memory.chat_memory.messages
+                   if isinstance(m, SystemMessage)):
+                memory.chat_memory.messages.insert(2, rag_msg)
 
-    # Add user message to history
-    chat_histories[session_id].append(HumanMessage(content=query.message))
+    # Add user's latest message to history
+    memory.chat_memory.add_message(HumanMessage(content=query.message))
 
     # Async callback for streaming
     async def streaming_generator() -> AsyncIterator[str]:
@@ -92,8 +95,8 @@ async def generate_answer(query: Query):
         # Streaming response asynchronously
         async def task():
             try:
-                response = await llm.ainvoke(chat_histories[session_id])
-                chat_histories[session_id].append(AIMessage(content=response.content))
+                response = await llm.ainvoke(memory.chat_memory.messages)
+                memory.chat_memory.add_message(AIMessage(content=response.content))
             except Exception as e:
                 await handler.on_llm_error(e)
 
