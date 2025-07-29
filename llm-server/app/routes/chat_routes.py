@@ -86,7 +86,6 @@ async def generate_answer(query: Query):
     async def streaming_generator() -> AsyncIterator[str]:
         handler = AsyncIteratorCallbackHandler()
         llm = ChatOpenAI(
-            api_key=OPENAI_API_KEY,
             model="gpt-4o",
             streaming=True,
             callbacks=[handler]
