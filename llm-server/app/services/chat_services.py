@@ -7,10 +7,7 @@ from datetime import datetime
 import openai
 from ..redis_config import r
 from ..models.xray_model import predict
-from ..config import (
-    OPENAI_API_KEY, sqs, healthimaging, table,
-    QUEUE_URL, DATASTORE_ID, s3, BUCKET_NAME
-)
+from ..config import OPENAI_API_KEY
 
 
 

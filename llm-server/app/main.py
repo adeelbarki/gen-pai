@@ -9,7 +9,8 @@ from app.services.chat_services import (
 from app.routes import (
     chat_routes, 
     classify_xray_routes,
-    imaging_routes
+    imaging_routes,
+    process_ocr_routes
 )
 
 
@@ -39,3 +40,6 @@ app.include_router(classify_xray_routes.router)
 
 # --- Endpoint 3: Extract Image from aws health Imaging, store in s3 and return signed url---
 app.include_router(imaging_routes.router)
+
+# --- Endpoint 4: Fetch handwritten note using sqs queue and convert to text---
+app.include_router(process_ocr_routes.router)
