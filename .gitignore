@@ -62,4 +62,6 @@ __pycache__/
 /api-server/PhysicianAI.Api/obj/
 /api-server/PhysicianAI.Api/appsettings.Development.json
 
+genpai-ocr-pipeline-vision-key.json
+
 
