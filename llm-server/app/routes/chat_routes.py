@@ -31,6 +31,8 @@ class Query(BaseModel):
 
 session_symptom_map: dict[str, str] = {}
 question_index_map: dict[str, int] = {}
+question_progress_map: dict[str, dict[str, int]] = {}
+section_order = ["chiefComplaint", "HPI", "PMH", "Medications", "SH", "FH"]
 
 
 def get_memory(session_id: str) -> ConversationSummaryBufferMemory:
@@ -77,41 +79,55 @@ async def generate_answer(query: Query):
     patient_id = query.patient_id
     memory = get_memory(session_id)
 
-
+    # Add user message to memory
     memory.chat_memory.add_message(HumanMessage(content=query.message))
 
-    if session_id not in session_symptom_map:
-        extracted = extract_symptom(query.message)
-        session_symptom_map[session_id] = extracted or "unspecified"
+    # Init session state if needed
+    if session_id not in question_progress_map:
+        extracted_symptom = extract_symptom(query.message) or "unspecified"
+        session_symptom_map[session_id] = extracted_symptom
+        question_progress_map[session_id] = {section: 0 for section in section_order}
+        question_progress_map[session_id]["current_section"] = section_order[0]
 
+    # Get session state
     current_symptom = session_symptom_map[session_id]
-    questions = retrieve_symptom_questions(current_symptom)
+    questions_by_section = retrieve_symptom_questions(current_symptom)
+    session_progress = question_progress_map[session_id]
 
+    # Default response
+    next_question = "Thank you. I’ve collected enough information for now."
 
-    question_index = question_index_map.get(session_id, 0)
+    # Determine current section and where to start
+    current_section = session_progress["current_section"]
+    current_index = section_order.index(current_section)
 
-    if question_index < len(questions):
-        next_question = questions[question_index]
-        question_index_map[session_id] = question_index + 1
-    else:
-        next_question = "Thank you. I’ve collected enough information for now."
+    for section in section_order[current_index:]:
+        questions = questions_by_section.get(section, [])
+        index = session_progress.get(section, 0)
 
+        if index < len(questions):
+            next_question = questions[index]
+            session_progress[section] += 1
+            session_progress["current_section"] = section
+            break
 
+    # Add assistant message to memory
     memory.chat_memory.add_message(AIMessage(content=next_question))
 
-
+    # Save full history to DynamoDB
     full_history = "\n".join(
         f"{msg.type.upper()}: {msg.content}" for msg in memory.chat_memory.messages
         if isinstance(msg, (SystemMessage, HumanMessage, AIMessage))
     )
-     
+
     save_chat_history_to_dynamodb(
         patient_id=patient_id,
         session_id=session_id,
         history=full_history
     )
-        
+
+    # Stream response
     async def streaming_generator() -> AsyncIterator[str]:
-        yield f"{next_question}\n\n"
+        yield f"data: {next_question}\n\n"
 
     return StreamingResponse(streaming_generator(), media_type="text/event-stream")

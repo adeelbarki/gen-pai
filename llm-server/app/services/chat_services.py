@@ -37,20 +37,10 @@ def load_symptom_question_data():
 symptom_questions = load_symptom_question_data()
 
 def retrieve_symptom_questions(symptom: str):
-    from redis.commands.search.query import Query as RedisQuery
-
-    query_vector = get_embeddings(symptom).astype(np.float32).tobytes()
-    query = (
-        RedisQuery('*=>[KNN 1 @embedding $vec_param AS score]')
-        .return_fields("symptom", "questions", "score")
-        .sort_by("score")
-        .dialect(2)
-    )
-    params = {"vec_param": query_vector}
-    result = r.ft("symptom_index").search(query, query_params=params)
-    if result.docs:
-        return json.loads(result.docs[0].questions)
-    return []
+    for entry in symptom_questions:
+        if entry["symptom"].lower() == symptom.lower():
+            return entry.get("questions", {})
+    return {}
 
 def save_chat_history_to_dynamodb(
         patient_id: str, 

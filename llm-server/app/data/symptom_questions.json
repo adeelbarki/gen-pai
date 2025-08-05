@@ -1,32 +1,59 @@
 [
   {
     "symptom": "cough",
-    "questions": [
-      "When did the cough start?",
-      "Is it a dry cough or are you coughing up phlegm?",
-      "Do you have any fever or chills?",
-      "Have you had any shortness of breath or chest pain?",
-      "Are there any triggers that make the cough worse?"
-    ]
-  },
-  {
-    "symptom": "sore throat",
-    "questions": [
-      "How long have you had the sore throat?",
-      "Is it painful to swallow?",
-      "Do you have a fever or headache?",
-      "Is there any hoarseness in your voice?",
-      "Have you noticed swollen glands or white patches in your throat?"
-    ]
+    "questions": {
+      "chiefComplaint": [
+        "What brings you in today related to your cough?"
+      ],
+      "HPI": [
+        "When did the cough start?",
+        "Is it a dry cough or are you coughing up phlegm?",
+        "Do you have any fever or chills?",
+        "Have you had any shortness of breath or chest pain?",
+        "Are there any triggers that make the cough worse?"
+      ],
+      "PMH": [
+        "Have you had similar symptoms in the past?",
+        "Do you have a history of asthma or lung disease?"
+      ],
+      "Medications": [
+        "Are you currently taking any medications for cough or allergies?"
+      ],
+      "SH": [
+        "Do you smoke or are you exposed to secondhand smoke?",
+        "Do you work in an environment with dust or chemicals?"
+      ],
+      "FH": [
+        "Is there any family history of asthma, allergies, or respiratory conditions?"
+      ]
+    }
   },
   {
     "symptom": "fever",
-    "questions": [
-      "When did the fever start?",
-      "What is the highest temperature you’ve recorded?",
-      "Is the fever constant or does it come and go?",
-      "Do you have any chills, body aches, or sweating?",
-      "Have you traveled recently or been in contact with anyone sick?"
-    ]
+    "questions": {
+      "chiefComplaint": [
+        "What symptoms are you experiencing along with the fever?"
+      ],
+      "HPI": [
+        "When did the fever start?",
+        "What is the highest temperature you’ve recorded?",
+        "Is the fever constant or does it come and go?",
+        "Do you have any chills, body aches, or sweating?",
+        "Have you traveled recently or been in contact with anyone sick?"
+      ],
+      "PMH": [
+        "Do you have any chronic illnesses or recurring infections?"
+      ],
+      "Medications": [
+        "Have you taken any fever-reducing medications?"
+      ],
+      "SH": [
+        "Do you live or work in close contact with others?",
+        "Have you been exposed to someone with a recent illness?"
+      ],
+      "FH": [
+        "Is there any family history of frequent fevers or immune disorders?"
+      ]
+    }
   }
 ]
