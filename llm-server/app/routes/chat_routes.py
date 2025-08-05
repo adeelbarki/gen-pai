@@ -5,7 +5,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import AsyncIterator
 
-from app.services.chat_services import extract_symptom, save_chat_history_to_dynamodb
+from app.services.chat_services import (
+    extract_symptom, 
+    save_chat_history_to_dynamodb, 
+    retrieve_symptom_questions
+)
 from app.services.rag_chain import rag_chain
 
 from langchain_openai import ChatOpenAI
@@ -24,6 +28,9 @@ class Query(BaseModel):
     session_id: str
     patient_id: str
     message: str
+
+session_symptom_map: dict[str, str] = {}
+question_index_map: dict[str, int] = {}
 
 
 def get_memory(session_id: str) -> ConversationSummaryBufferMemory:
@@ -70,51 +77,41 @@ async def generate_answer(query: Query):
     patient_id = query.patient_id
     memory = get_memory(session_id)
 
+
     memory.chat_memory.add_message(HumanMessage(content=query.message))
 
-    # Extract symptom
-    user_symptom = extract_symptom(query.message) or "unspecified"
+    if session_id not in session_symptom_map:
+        extracted = extract_symptom(query.message)
+        session_symptom_map[session_id] = extracted or "unspecified"
+
+    current_symptom = session_symptom_map[session_id]
+    questions = retrieve_symptom_questions(current_symptom)
 
 
-    # Streaming response
+    question_index = question_index_map.get(session_id, 0)
+
+    if question_index < len(questions):
+        next_question = questions[question_index]
+        question_index_map[session_id] = question_index + 1
+    else:
+        next_question = "Thank you. I’ve collected enough information for now."
+
+
+    memory.chat_memory.add_message(AIMessage(content=next_question))
+
+
+    full_history = "\n".join(
+        f"{msg.type.upper()}: {msg.content}" for msg in memory.chat_memory.messages
+        if isinstance(msg, (SystemMessage, HumanMessage, AIMessage))
+    )
+     
+    save_chat_history_to_dynamodb(
+        patient_id=patient_id,
+        session_id=session_id,
+        history=full_history
+    )
+        
     async def streaming_generator() -> AsyncIterator[str]:
-        handler = AsyncIteratorCallbackHandler()
-        llm = ChatOpenAI(
-            model="gpt-4o",
-            streaming=True,
-            callbacks=[handler]
-        )
-
-        async def task():
-            try:
-                response = await rag_chain.ainvoke({
-                     "symptom": user_symptom,
-                     "history": "\n".join(
-                        f"{msg.type.upper()}: {msg.content}" for msg in memory.chat_memory.messages
-                        if isinstance(msg, (SystemMessage, HumanMessage, AIMessage))
-                    )
-                },
-                config={"callbacks": [handler]}
-                )
-                memory.chat_memory.add_message(AIMessage(content=response.content))
-
-                full_history = "\n".join(
-                    f"{msg.type.upper()}: {msg.content}" for msg in memory.chat_memory.messages
-                    if isinstance(msg, (SystemMessage, HumanMessage, AIMessage))
-                )
-                
-                save_chat_history_to_dynamodb (
-                    patient_id=patient_id,
-                    session_id=session_id,
-                    history=full_history
-                )
-            except Exception as e:
-                await handler.on_llm_error(e)
-
-        import asyncio
-        asyncio.create_task(task())
-        async for token in handler.aiter():
-            yield token
-
+        yield f"{next_question}\n\n"
 
     return StreamingResponse(streaming_generator(), media_type="text/event-stream")
