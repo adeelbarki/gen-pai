@@ -12,6 +12,7 @@ from ..config import (
     DATASTORE_ID,
 )
 from ..models.xray_model import predict
+from datetime import datetime
 
 router = APIRouter()
 
@@ -74,14 +75,17 @@ def process_one_job():
     image = Image.open(BytesIO(image_bytes)).convert("RGB")
     label, confidence = predict(image)
 
+    timestamp = datetime.utcnow().isoformat()
     # Save to DynamoDB
     table.put_item(
         Item={
-            "imageSetId": image_set_id,
             "patientId": patient_id,
+            "SK": f"XRay#{timestamp}",
+            "recordType": "XRay",
+            "timestamp": timestamp,
+            "imageSetId": image_set_id,
             "prediction": label,
-            "confidence": Decimal(str(confidence)),
-            "timestamp": datetime.utcnow().isoformat()
+            "confidence": Decimal(str(confidence))
         }
     )
 
