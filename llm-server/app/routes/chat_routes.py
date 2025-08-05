@@ -5,14 +5,14 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import AsyncIterator
 
-from app.services.chat_services import extract_symptom, retrieve_symptom_questions
+from app.services.chat_services import extract_symptom, save_chat_history_to_dynamodb
 from app.services.rag_chain import rag_chain
-from ..config import OPENAI_API_KEY
 
 from langchain_openai import ChatOpenAI
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain.callbacks import AsyncIteratorCallbackHandler
 from langchain.memory import ConversationSummaryBufferMemory
+import json
 
 router = APIRouter()
 
@@ -22,6 +22,7 @@ memories: dict[str, ConversationSummaryBufferMemory] = {}
 
 class Query(BaseModel):
     session_id: str
+    patient_id: str
     message: str
 
 
@@ -66,6 +67,7 @@ def get_memory(session_id: str) -> ConversationSummaryBufferMemory:
 @router.post("/generate-answer")
 async def generate_answer(query: Query):
     session_id = query.session_id
+    patient_id = query.patient_id
     memory = get_memory(session_id)
 
     # Extract symptom
@@ -95,6 +97,12 @@ async def generate_answer(query: Query):
                 config={"callbacks": [handler]}
                 )
                 memory.chat_memory.add_message(AIMessage(content=response.content))
+                
+                save_chat_history_to_dynamodb (
+                    patient_id=patient_id,
+                    session_id=session_id,
+                    history=history
+                )
             except Exception as e:
                 await handler.on_llm_error(e)
 

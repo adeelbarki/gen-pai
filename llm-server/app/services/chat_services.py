@@ -1,18 +1,16 @@
-import os, json, gzip
+import os, json
 import numpy as np
-from PIL import Image
-from io import BytesIO
-from decimal import Decimal
-from datetime import datetime
 import openai
+from boto3.dynamodb.conditions import Key
 from ..redis_config import r
-from ..models.xray_model import predict
-from ..config import OPENAI_API_KEY
-
+from ..config import (
+    OPENAI_API_KEY,
+    table,
+)
+from datetime import datetime
 
 
 openai.api_key = OPENAI_API_KEY
-
 
 
 def get_embeddings(text: str, model: str = "text-embedding-3-small") -> np.ndarray:
@@ -53,3 +51,19 @@ def retrieve_symptom_questions(symptom: str):
     if result.docs:
         return json.loads(result.docs[0].questions)
     return []
+
+def save_chat_history_to_dynamodb(
+        patient_id: str, 
+        session_id: str, 
+        history: str):
+    item = {
+        "patientId": patient_id,
+        "SK": f"ChatHistory#{session_id}",
+        "recordType": "ChatHistory",
+        "timestamp": datetime.utcnow().isoformat(),
+        "sessionId": session_id,
+        "chat": history
+    }
+
+    table.put_item(Item=item)
+
