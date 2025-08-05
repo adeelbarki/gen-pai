@@ -2,7 +2,6 @@ import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChatService } from './chat.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { ChatResponse } from './chat.model';
 import { MarkdownModule } from 'ngx-markdown';
 
 
@@ -20,6 +19,7 @@ import { MarkdownModule } from 'ngx-markdown';
 
 export class ChatWindowComponent {
 
+  patientId = "54862509-2480-4d58-99b8-7e6fe993875b"
   message: string = ''
   loading: boolean = false;
   loadingInterval: any;
@@ -38,7 +38,7 @@ export class ChatWindowComponent {
 
     let aiIndex = this.chatLog.length - 1;
 
-    this.chatService.sendMessage(this.message, "abc123").subscribe({
+    this.chatService.sendMessage(this.message, this.patientId).subscribe({
     next: (chunk: string) => {
       this.chatLog[aiIndex].text += chunk;
       this.scrollToBottom();

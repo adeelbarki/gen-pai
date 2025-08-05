@@ -70,14 +70,11 @@ async def generate_answer(query: Query):
     patient_id = query.patient_id
     memory = get_memory(session_id)
 
+    memory.chat_memory.add_message(HumanMessage(content=query.message))
+
     # Extract symptom
     user_symptom = extract_symptom(query.message) or "unspecified"
 
-    # Convert chat history to readable text
-    history = "\n".join(
-        f"{msg.type.upper()}: {msg.content}" for msg in memory.chat_memory.messages
-        if isinstance(msg, (SystemMessage, HumanMessage, AIMessage))
-    )
 
     # Streaming response
     async def streaming_generator() -> AsyncIterator[str]:
@@ -92,16 +89,24 @@ async def generate_answer(query: Query):
             try:
                 response = await rag_chain.ainvoke({
                      "symptom": user_symptom,
-                     "history": history
+                     "history": "\n".join(
+                        f"{msg.type.upper()}: {msg.content}" for msg in memory.chat_memory.messages
+                        if isinstance(msg, (SystemMessage, HumanMessage, AIMessage))
+                    )
                 },
                 config={"callbacks": [handler]}
                 )
                 memory.chat_memory.add_message(AIMessage(content=response.content))
+
+                full_history = "\n".join(
+                    f"{msg.type.upper()}: {msg.content}" for msg in memory.chat_memory.messages
+                    if isinstance(msg, (SystemMessage, HumanMessage, AIMessage))
+                )
                 
                 save_chat_history_to_dynamodb (
                     patient_id=patient_id,
                     session_id=session_id,
-                    history=history
+                    history=full_history
                 )
             except Exception as e:
                 await handler.on_llm_error(e)

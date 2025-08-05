@@ -1,7 +1,5 @@
 import { Injectable } from "@angular/core";
-import { HttpClient } from "@angular/common/http";
 import { Observable } from "rxjs";
-import { ChatResponse } from "./chat.model";
 
 @Injectable({
     providedIn: 'root'
@@ -10,12 +8,16 @@ import { ChatResponse } from "./chat.model";
 export class ChatService {
     private apiUrl = 'http://localhost:5268/api/patient/query';
 
-    // constructor(private http: HttpClient) {}
 
-    sendMessage(text: string, sessionId: string = "default-session"): Observable<string> {
+    sendMessage(
+      text: string,
+      patientId: string, 
+      sessionId: string = "default-session"
+    ): Observable<string> {
   return new Observable(observer => {
     const body = {
       sessionId: sessionId,
+      patientId: patientId,
       text: text
     };
 

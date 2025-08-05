@@ -21,12 +21,11 @@ namespace PhysicianAI.Api.Controllers
         public async Task QueryPatient([FromBody] UserQuestion question)
         {
             var payload = new {
+                patient_id = question.PatientId,
                 session_id = question.SessionId,
                 message = question.Text
             };
-            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions {
-                PropertyNamingPolicy = null
-            });
+            var json = JsonSerializer.Serialize(payload);
 
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -47,6 +46,7 @@ namespace PhysicianAI.Api.Controllers
     }
     public class UserQuestion
     {
+        public required string PatientId { get; set; }
         public required string SessionId { get; set; }
         public required string Text { get; set; }
     }
