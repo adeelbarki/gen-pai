@@ -1,9 +1,11 @@
 import torch
 from torchvision import models, transforms
+from torchvision.models import DenseNet121_Weights
 from PIL import Image
 
 # Load pretrained DenseNet121 model
-model = models.densenet121(pretrained=True)
+weights = DenseNet121_Weights.DEFAULT
+model = models.densenet121(weights=weights)
 model.classifier = torch.nn.Linear(1024, 2)
 model.eval()
 
