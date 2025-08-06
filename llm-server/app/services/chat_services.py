@@ -1,7 +1,6 @@
 import os, json
 import numpy as np
 import openai
-from boto3.dynamodb.conditions import Key
 from ..redis_config import r
 from ..config import (
     OPENAI_API_KEY,

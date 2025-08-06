@@ -10,13 +10,10 @@ from app.services.chat_services import (
     save_chat_history_to_dynamodb, 
     retrieve_symptom_questions
 )
-from app.services.rag_chain import rag_chain
 
 from langchain_openai import ChatOpenAI
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
-from langchain.callbacks import AsyncIteratorCallbackHandler
 from langchain.memory import ConversationSummaryBufferMemory
-import json
 
 router = APIRouter()
 
