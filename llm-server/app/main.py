@@ -1,35 +1,36 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from .redis_config import r, ensure_symptom_index_exists
-import json
-from app.services.chat_services import (
-    symptom_questions,
-    get_embeddings
-)
+from app.services.chat_services import symptom_questions
 from app.routes import (
     chat_routes, 
     classify_xray_routes,
-    imaging_routes
+    imaging_routes,
+    process_ocr_routes,
+    physical_exam_results_routes
 )
+from app.services.rag_setup import upsert_symptom_questions_to_vectorstore
+from app.vectorstore_config import vectorstore
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_symptom_index_exists()
 
-    for entry in symptom_questions:
-        key = f"symptom:{entry['symptom']}"
-        if not r.exists(key):
-            emb = get_embeddings(entry["symptom"])
-            r.hset(key, mapping={
-                "symptom": entry["symptom"],
-                "questions": json.dumps(entry["questions"]),
-                "embedding": emb.tobytes()
-            })
+    upsert_symptom_questions_to_vectorstore(vectorstore, symptom_questions)
+
+
+    from redisvl.query.filter import Tag
+
+    flt = Tag("symptom") == "cough"
+    docs2 = vectorstore.similarity_search("start", k=50, filter=flt)
+    print("with-filter:", [(d.page_content, d.metadata) for d in docs2])
+   
     yield
 
 
 app = FastAPI(lifespan=lifespan)
+
 
 # --- Endpoint 1: Opneai Question and generate asnwer ---
 app.include_router(chat_routes.router)
@@ -39,3 +40,9 @@ app.include_router(classify_xray_routes.router)
 
 # --- Endpoint 3: Extract Image from aws health Imaging, store in s3 and return signed url---
 app.include_router(imaging_routes.router)
+
+# --- Endpoint 4: Fetch handwritten note using sqs queue and convert to text---
+app.include_router(process_ocr_routes.router)
+
+# --- Endpoint 4: Fetch physical exam results in text file and save to patient records---
+app.include_router(physical_exam_results_routes.router)

@@ -8,17 +8,18 @@ from ..config import (
     sqs,
     healthimaging,
     table,
-    QUEUE_URL,
+    DICOM_IMPORT_QUEUE_URL,
     DATASTORE_ID,
 )
 from ..models.xray_model import predict
+from datetime import datetime
 
 router = APIRouter()
 
 @router.get("/process-job")
 def process_one_job():
     messages = sqs.receive_message(
-        QueueUrl=QUEUE_URL,
+        QueueUrl=DICOM_IMPORT_QUEUE_URL,
         MaxNumberOfMessages=1,
         WaitTimeSeconds=3
     )
@@ -33,7 +34,7 @@ def process_one_job():
     if not image_set_id:
         print("❌ Missing imageSetId in message. Skipping...")
         sqs.delete_message(
-            QueueUrl=QUEUE_URL,
+            QueueUrl=DICOM_IMPORT_QUEUE_URL,
             ReceiptHandle=msg["ReceiptHandle"]
         )
         return {"error": "Message missing imageSetId"}
@@ -74,20 +75,23 @@ def process_one_job():
     image = Image.open(BytesIO(image_bytes)).convert("RGB")
     label, confidence = predict(image)
 
+    timestamp = datetime.utcnow().isoformat()
     # Save to DynamoDB
     table.put_item(
         Item={
-            "imageSetId": image_set_id,
             "patientId": patient_id,
+            "SK": f"XRay#{timestamp}",
+            "recordType": "XRay",
+            "timestamp": timestamp,
+            "imageSetId": image_set_id,
             "prediction": label,
-            "confidence": Decimal(str(confidence)),
-            "timestamp": datetime.utcnow().isoformat()
+            "confidence": Decimal(str(confidence))
         }
     )
 
     # Clean up processed message
     sqs.delete_message(
-        QueueUrl=QUEUE_URL,
+        QueueUrl=DICOM_IMPORT_QUEUE_URL,
         ReceiptHandle=msg["ReceiptHandle"]
     )
 

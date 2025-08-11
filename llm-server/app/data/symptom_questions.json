@@ -1,32 +1,205 @@
 [
   {
     "symptom": "cough",
-    "questions": [
-      "When did the cough start?",
-      "Is it a dry cough or are you coughing up phlegm?",
-      "Do you have any fever or chills?",
-      "Have you had any shortness of breath or chest pain?",
-      "Are there any triggers that make the cough worse?"
-    ]
-  },
-  {
-    "symptom": "sore throat",
-    "questions": [
-      "How long have you had the sore throat?",
-      "Is it painful to swallow?",
-      "Do you have a fever or headache?",
-      "Is there any hoarseness in your voice?",
-      "Have you noticed swollen glands or white patches in your throat?"
-    ]
+    "questions": {
+      "chiefComplaint": [
+        "What brings you in today related to your cough?"
+      ],
+      "HPI": [
+        "When did the cough start?",
+        "Is it a dry cough or are you coughing up phlegm?",
+        "Do you have any fever or chills?",
+        "Have you had any shortness of breath or chest pain?",
+        "Are there any triggers that make the cough worse?"
+      ],
+      "PMH": [
+        "Have you had similar symptoms in the past?",
+        "Do you have a history of asthma or lung disease?"
+      ],
+      "Medications": [
+        "Are you currently taking any medications for cough or allergies?"
+      ],
+      "SH": [
+        "Do you smoke or are you exposed to secondhand smoke?",
+        "Do you work in an environment with dust or chemicals?"
+      ],
+      "FH": [
+        "Is there any family history of asthma, allergies, or respiratory conditions?"
+      ]
+    }
   },
   {
     "symptom": "fever",
-    "questions": [
-      "When did the fever start?",
-      "What is the highest temperature you’ve recorded?",
-      "Is the fever constant or does it come and go?",
-      "Do you have any chills, body aches, or sweating?",
-      "Have you traveled recently or been in contact with anyone sick?"
-    ]
+    "questions": {
+      "chiefComplaint": [
+        "What symptoms are you experiencing along with the fever?"
+      ],
+      "HPI": [
+        "When did the fever start?",
+        "What is the highest temperature you’ve recorded?",
+        "Is the fever constant or does it come and go?",
+        "Do you have any chills, body aches, or sweating?",
+        "Have you traveled recently or been in contact with anyone sick?"
+      ],
+      "PMH": [
+        "Do you have any chronic illnesses or recurring infections?"
+      ],
+      "Medications": [
+        "Have you taken any fever-reducing medications?"
+      ],
+      "SH": [
+        "Do you live or work in close contact with others?",
+        "Have you been exposed to someone with a recent illness?"
+      ],
+      "FH": [
+        "Is there any family history of frequent fevers or immune disorders?"
+      ]
+    }
+  },
+  {
+    "symptom": "back pain",
+    "questions": {
+      "chiefComplaint": [
+        "What brings you in today regarding your back pain?"
+      ],
+      "HPI": [
+        "When did the pain start?",
+        "Can you describe the location and type of pain (sharp, dull, radiating)?",
+        "Is it constant or does it come and go?",
+        "What activities or positions worsen or relieve the pain?",
+        "Did you experience any recent injury, fall, or strain?"
+      ],
+      "PMH": [
+        "Do you have any history of back problems or spinal conditions?",
+        "Have you had any surgeries or accidents in the past?"
+      ],
+      "Medications": [
+        "Are you taking any pain relief or anti-inflammatory medications?"
+      ],
+      "SH": [
+        "What is your occupation and do you engage in heavy lifting or sitting long hours?",
+        "Do you exercise or stretch regularly?"
+      ],
+      "FH": [
+        "Is there a family history of arthritis, disc problems, or spine issues?"
+      ]
+    }
+  },
+  {
+    "symptom": "skin rash",
+    "questions": {
+      "chiefComplaint": [
+        "What concerns you most about the rash?"
+      ],
+      "HPI": [
+        "When did the rash start?",
+        "Where is the rash located and how has it changed over time?",
+        "Is it itchy, painful, or blistering?",
+        "Have you used any new soaps, lotions, or medications recently?",
+        "Did you eat anything unusual or come into contact with plants or animals?"
+      ],
+      "PMH": [
+        "Do you have a history of allergies, eczema, or skin conditions?"
+      ],
+      "Medications": [
+        "Are you using any topical creams or medications on the rash?"
+      ],
+      "SH": [
+        "Do you have any pets, or have you been outdoors recently?",
+        "Are you in contact with others who have skin issues?"
+      ],
+      "FH": [
+        "Is there any family history of skin conditions or allergies?"
+      ]
+    }
+  },
+  {
+    "symptom": "minor injury",
+    "questions": {
+      "chiefComplaint": [
+        "What happened that led to the injury?"
+      ],
+      "HPI": [
+        "When did the injury occur?",
+        "What part of your body is affected?",
+        "Was there any swelling, bruising, or inability to move the joint?",
+        "Were you able to walk or use the affected limb immediately after?",
+        "Did you apply any first aid or treatment at home?"
+      ],
+      "PMH": [
+        "Do you have a history of joint injuries or bone issues?",
+        "Do you have any bleeding or clotting disorders?"
+      ],
+      "Medications": [
+        "Are you currently taking any blood thinners or pain relievers?"
+      ],
+      "SH": [
+        "Do you play any sports or engage in physical activity regularly?",
+        "Did the injury happen at work or during recreation?"
+      ],
+      "FH": [
+        "Is there any family history of joint instability or bone disorders?"
+      ]
+    }
+  },
+  {
+    "symptom": "headache",
+    "questions": {
+      "chiefComplaint": [
+        "What brings you in today regarding your headache?"
+      ],
+      "HPI": [
+        "When did the headache start?",
+        "Where is the pain located (front, back, one side)?",
+        "Is it a sharp, throbbing, or dull pain?",
+        "How long does it last and how often does it occur?",
+        "Are there any triggers like light, sound, stress, or food?",
+        "Have you experienced any nausea, vision changes, or aura?"
+      ],
+      "PMH": [
+        "Do you have a history of migraines or frequent headaches?",
+        "Do you have any neurological or chronic conditions?"
+      ],
+      "Medications": [
+        "Are you taking any pain medications or migraine treatments?"
+      ],
+      "SH": [
+        "How is your sleep, diet, and stress level?",
+        "Do you consume caffeine or alcohol regularly?"
+      ],
+      "FH": [
+        "Is there any family history of migraines or neurological disorders?"
+      ]
+    }
+  },
+  {
+    "symptom": "fatigue",
+    "questions": {
+      "chiefComplaint": [
+        "What brings you in today regarding feeling tired or fatigued?"
+      ],
+      "HPI": [
+        "When did you start feeling fatigued?",
+        "Is it constant or does it come and go?",
+        "Does anything make it better or worse (sleep, food, activity)?",
+        "Are you having difficulty concentrating or staying awake?",
+        "Have you had any recent illness, stress, or lifestyle change?"
+      ],
+      "PMH": [
+        "Do you have a history of thyroid problems, anemia, or depression?",
+        "Any past episodes of prolonged fatigue?"
+      ],
+      "Medications": [
+        "Are you currently on any medications that might cause drowsiness?"
+      ],
+      "SH": [
+        "How many hours of sleep do you get?",
+        "What is your typical diet and activity level?",
+        "Are you experiencing stress at work or home?"
+      ],
+      "FH": [
+        "Is there a family history of thyroid disorders, sleep disorders, or chronic fatigue?"
+      ]
+    }
   }
 ]
