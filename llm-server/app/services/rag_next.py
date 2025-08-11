@@ -1,38 +1,58 @@
 # keep this in some module, e.g., services/rag_next.py
 
-from typing import Optional, Set
+from typing import Optional, Set, Tuple, Dict, List
+from langchain_core.documents import Document
 from redisvl.query.filter import Tag
-from vectorstore_config import vectorstore
+from ..vectorstore_config import vectorstore
 
-# session_asked_ids[session_id] = set([...doc_ids...])
-session_asked_ids: dict[str, Set[str]] = {}
+asked_ids: dict[str, Set[str]] = {}
+asked_contents: Dict[str, Set[str]] = {}
 
 async def get_next_question(
     session_id: str,
     symptom: str,
     user_hint: str = "follow-up question",
-    k: int = 5,
-) -> Optional[str]:
+    k: int = 8,
+) -> Optional[Tuple[str, Dict[str, str]]]:
     flt = Tag("symptom") == symptom
     retriever = vectorstore.as_retriever(
         search_type="similarity",
         search_kwargs={"k": k, "filter": flt},
     )
 
-    docs = await retriever.aget_relevant_documents(user_hint)
+    docs: List[Document] = await retriever.aget_relevant_documents(user_hint or symptom)
     if not docs:
         return None
 
-    asked = session_asked_ids.setdefault(session_id, set())
-    # Find first doc we haven't asked yet
+    ids = asked_ids.setdefault(session_id, set())
+    contents = asked_contents.setdefault(session_id, set())
+    
     for d in docs:
-        doc_id = d.metadata.get("id") or d.metadata.get("_id")  # depends on your upsert; store an id in metadata
-        if doc_id and doc_id in asked:
-            continue
-        # mark asked & return
-        if doc_id:
-            asked.add(doc_id)
-        return d.page_content
+        doc_id = (d.metadata.get("id") or d.metadata.get("_id") or "").strip()
+        content = (d.page_content or "").strip()
 
-    # If all top-k already asked, try the first anyway
-    return docs[0].page_content
+        if (doc_id and doc_id in ids) or (content and content in contents):
+            continue
+
+        if doc_id:
+            ids.add(doc_id)
+        if content:
+            contents.add(content)
+
+        meta = {
+            "id": doc_id,
+            "symptom": d.metadata.get("symptom", ""),
+            "section": d.metadata.get("section", "HPI"),
+        }
+        return content, meta
+    
+    return None
+
+    
+    # d = docs[0]
+    # doc_id = d.metadata.get("id") or d.metadata.get("_id") or ""
+    # return d.page_content, {
+    #     "id": doc_id,
+    #     "symptom": d.metadata.get("symptom", ""),
+    #     "section": d.metadata.get("section", "HPI"),
+    # }

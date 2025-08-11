@@ -20,11 +20,11 @@ async def lifespan(app: FastAPI):
     upsert_symptom_questions_to_vectorstore(vectorstore, symptom_questions)
 
 
-    # from redisvl.query.filter import Tag
+    from redisvl.query.filter import Tag
 
-    # flt = Tag("symptom") == "cough"
-    # docs2 = vectorstore.similarity_search("start", k=3, filter=flt)
-    # print("with-filter:", [(d.page_content, d.metadata) for d in docs2])
+    flt = Tag("symptom") == "cough"
+    docs2 = vectorstore.similarity_search("start", k=50, filter=flt)
+    print("with-filter:", [(d.page_content, d.metadata) for d in docs2])
    
     yield
 
