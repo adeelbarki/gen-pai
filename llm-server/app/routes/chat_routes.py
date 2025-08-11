@@ -1,107 +1,98 @@
-# routes/chat_routes.py
-
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import AsyncIterator
-
-from app.services.chat_services import extract_symptom, retrieve_symptom_questions
-from app.services.rag_chain import rag_chain
-from ..config import OPENAI_API_KEY
-
-from langchain_openai import ChatOpenAI
+from typing import AsyncIterator, Dict, List, Optional, Set, Tuple
+from app.services.rag_next import get_next_question
+from app.services.chat_services import (
+    extract_symptom, 
+    save_chat_history_to_dynamodb, 
+    retrieve_symptom_questions
+)
+from app.prompts.symptom_qs_prompt import run_langchain_extraction
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
-from langchain.callbacks import AsyncIteratorCallbackHandler
-from langchain.memory import ConversationSummaryBufferMemory
+from langchain_openai import ChatOpenAI
 
 router = APIRouter()
 
-LLM = ChatOpenAI(model="gpt-4o")
-
-memories: dict[str, ConversationSummaryBufferMemory] = {}
 
 class Query(BaseModel):
     session_id: str
+    patient_id: str
     message: str
 
+# ---- Session state (in-memory) ----
+# Answers per section
+session_answers_map: Dict[str, Dict[str, List[str]]] = {}
+# Symptom per session
+session_symptom_map: Dict[str, str] = {}
+# Asked doc IDs (to avoid repeats)
+session_asked_ids: Dict[str, Set[str]] = {}
+# Last asked question's doc metadata (so we know which section to save the user's answer to)
+session_last_doc_meta: Dict[str, Dict[str, str]] = {}
 
-def get_memory(session_id: str) -> ConversationSummaryBufferMemory:
-    if session_id not in memories:
-        memory = ConversationSummaryBufferMemory(
-            llm=LLM,
-            max_token_limit=6_000,
-            return_messages=True,
-        )
-        memory.chat_memory.messages.extend([
-            SystemMessage(
-                content=(
-                    "You are a helpful assistant.\n"
-                    "Respond using Markdown formatting:\n"
-                    "- Use headings for major sections\n"
-                    "- Use **bold** for key points\n"
-                    "- Use bullet points where helpful\n"
-                    "- Write in clear, concise language"
-                )
-            ),
-            SystemMessage(
-                content=(
-                    "You are a compassionate and intelligent virtual doctor assistant. "
-                    "Your task is to take a detailed history from the patient, asking one question at a time like a real physician.\n\n"
-                    "Follow this order:\n"
-                    "1. Start with the chief complaint.\n"
-                    "2. Ask about the history of present illness (onset, duration, severity, triggers).\n"
-                    "3. Ask associated symptoms (e.g. fever, fatigue, shortness of breath).\n"
-                    "4. Ask about past medical history.\n"
-                    "5. Ask about medications, allergies, lifestyle, recent travel, or exposures.\n"
-                    "6. Be concise, empathetic, and avoid repeating questions. Stop when you've collected enough history.\n\n"
-                    "Only ask one question at a time. Do not jump to conclusions or give advice yet. Just collect information."
-                )
-            )
-        ])
-        memories[session_id] = memory
+# Fixed section order if you want to use it later (optional)
+SECTION_ORDER = ["chiefComplaint", "HPI", "PMH", "Medications", "SH", "FH"]
 
-    return memories[session_id]
+# Your LLM for any downstream use (not used to generate questions here)
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
 
 
 @router.post("/generate-answer")
 async def generate_answer(query: Query):
     session_id = query.session_id
-    memory = get_memory(session_id)
+    patient_id = query.patient_id
+    user_message = query.message.strip()
 
-    # Extract symptom
-    user_symptom = extract_symptom(query.message) or "unspecified"
+    if session_id not in session_symptom_map:
+        symptom = extract_symptom(user_message) or "unspecified"
+        session_symptom_map[session_id] = symptom
+        session_answers_map[session_id] = {sec: [] for sec in SECTION_ORDER}
+        session_asked_ids[session_id] = set()
+        session_last_doc_meta[session_id] = {}
 
-    # Convert chat history to readable text
-    history = "\n".join(
-        f"{msg.type.upper()}: {msg.content}" for msg in memory.chat_memory.messages
-        if isinstance(msg, (SystemMessage, HumanMessage, AIMessage))
-    )
+        # Ask first question via RAG (no prior hint besides symptom)
+        nxt = await get_next_question(session_id, symptom, user_hint=symptom)
+        if not nxt:
+            # no questions available; end flow
+            extracted = await run_langchain_extraction(session_answers_map[session_id])
+            save_chat_history_to_dynamodb(patient_id, session_id, extracted)
+            _cleanup_session(session_id)
+            return stream_response("Thanks! I’ve collected everything I need.")
+        
+        next_question, meta = nxt
+        session_last_doc_meta[session_id] = meta
+        print(">>> next_q:", repr(next_question))
+        return stream_response(next_question)
+    
+    last_meta = session_last_doc_meta.get(session_id, {})
+    section = last_meta.get("section", "HPI")
+    session_answers_map[session_id][section].append(user_message)
 
-    # Streaming response
+    symptom = session_symptom_map[session_id]
+    nxt = await get_next_question(session_id, symptom, user_hint=user_message)
+
+    if not nxt:
+        extracted = await run_langchain_extraction(session_answers_map[session_id])
+        save_chat_history_to_dynamodb(patient_id, session_id, extracted)
+        _cleanup_session(session_id)
+        return stream_response("Thanks! I’ve collected everything I need.")
+
+    next_question, meta = nxt
+    session_last_doc_meta[session_id] = meta
+    return stream_response(next_question)
+
+
+# ---- SSE helper ----
+def stream_response(message: str) -> StreamingResponse:
     async def streaming_generator() -> AsyncIterator[str]:
-        handler = AsyncIteratorCallbackHandler()
-        llm = ChatOpenAI(
-            model="gpt-4o",
-            streaming=True,
-            callbacks=[handler]
-        )
-
-        async def task():
-            try:
-                response = await rag_chain.ainvoke({
-                     "symptom": user_symptom,
-                     "history": history
-                },
-                config={"callbacks": [handler]}
-                )
-                memory.chat_memory.add_message(AIMessage(content=response.content))
-            except Exception as e:
-                await handler.on_llm_error(e)
-
-        import asyncio
-        asyncio.create_task(task())
-        async for token in handler.aiter():
-            yield token
-
+        yield f"data: {message}\n\n"
 
     return StreamingResponse(streaming_generator(), media_type="text/event-stream")
+
+# ---- cleanup ----
+def _cleanup_session(session_id: str) -> None:
+    session_symptom_map.pop(session_id, None)
+    session_answers_map.pop(session_id, None)
+    session_asked_ids.pop(session_id, None)
+    session_last_doc_meta.pop(session_id, None)

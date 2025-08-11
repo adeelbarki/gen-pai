@@ -1,7 +1,6 @@
 # app/services/rag_chain.py
 from langchain.prompts import PromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
-from langchain.chains import LLMChain
 from langchain_openai import ChatOpenAI
 
 rag_llm = ChatOpenAI(

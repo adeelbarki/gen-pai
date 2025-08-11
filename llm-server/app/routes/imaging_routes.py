@@ -17,14 +17,15 @@ router = APIRouter()
 def get_presigned_image_url(patient_id: str):
     
     response = table.query(
-        IndexName="patientId-index",
-        KeyConditionExpression=Key("patientId").eq(patient_id)
+        KeyConditionExpression=Key("patientId").eq(patient_id) & Key("SK").begins_with("XRay#")
     )
     
     if not response["Items"]:
-        return {"error": "Patient ID not found"}
+        return {"error": "No XRay records found for this patient"}
     
-    image_set_id = response["Items"][0]["imageSetId"]
+    latest_record = sorted(response["Items"], key=lambda x: x["timestamp"], reverse=True)[0]
+    
+    image_set_id = latest_record["imageSetId"]
 
     metadata_blob = healthimaging.get_image_set_metadata(
         datastoreId=DATASTORE_ID,

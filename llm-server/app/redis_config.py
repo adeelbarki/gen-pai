@@ -19,7 +19,7 @@ r = redis.Redis(
 def ensure_symptom_index_exists():
     try:
         r.ft(INDEX_NAME).info()
-        print(f"✅ Index '{INDEX_NAME}' already exists.")
+
     except ResponseError as e:
         if "no such index" in str(e).lower():
             print(f"⚠️ Index '{INDEX_NAME}' not found. Creating it now...")

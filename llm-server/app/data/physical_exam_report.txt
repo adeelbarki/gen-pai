@@ -1,0 +1,38 @@
+Patient Name: John Doe
+Age: 58
+Gender: Male
+Date: 2025-08-06
+Physician: Dr. Emily Carter
+
+Physical Examination:
+
+General Appearance:
+Patient is alert, oriented to time, place, and person. Appears mildly fatigued but in no acute distress.
+
+Vital Signs:
+Temp: 37.8°C (oral)
+BP: 138/84 mmHg (right arm, sitting)
+HR: 92 bpm, regular rhythm
+RR: 18 breaths per minute
+O2 Sat: 96% on room air
+
+HEENT:
+Head normocephalic, atraumatic. Pupils equal, round, reactive to light and accommodation. Oropharynx clear, no erythema or exudate.
+
+Cardiovascular:
+S1 and S2 present, no murmurs, rubs, or gallops. No peripheral edema. Capillary refill < 2 seconds.
+
+Respiratory:
+Clear to auscultation bilaterally. No wheezing, rales, or rhonchi. No use of accessory muscles.
+
+Abdomen:
+Soft, non-tender, non-distended. Bowel sounds present. No hepatosplenomegaly.
+
+Neurological:
+Cranial nerves II-XII intact. No focal deficits noted. Sensation and motor function preserved.
+
+Assessment:
+Vital signs stable. Mildly elevated temperature. No acute findings on examination.
+
+Plan:
+Monitor vitals. Encourage oral hydration. Consider labs if symptoms worsen.
