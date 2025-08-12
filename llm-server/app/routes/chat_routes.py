@@ -8,6 +8,7 @@ from typing import AsyncIterator, Dict, List, Optional, Tuple
 from app.services.rag_next import get_next_question
 from app.services.chat_services import extract_symptom
 from app.services.dynamodb_services import save_chat_history_to_dynamodb
+from app.services.validators import validate_user_input
 from app.prompts.symptom_qs_prompt import run_langchain_extraction
 from langchain_openai import ChatOpenAI
 
@@ -40,7 +41,11 @@ async def generate_answer(query: Query):
 
     # ---- First turn: detect symptom, init state, ask first question ----
     if session_id not in session_symptom_map:
-        symptom = extract_symptom(user_message) or "unspecified"
+        symptom = extract_symptom(user_message)
+        if not symptom:
+            return stream_response(
+                "To get started, what symptom brings you in today? (e.g., cough, fever, sore throat)"
+            )
         session_symptom_map[session_id] = symptom
         session_last_doc_meta[session_id] = {}
         session_qas_map[session_id] = {sec: [] for sec in SECTION_ORDER}
@@ -60,22 +65,28 @@ async def generate_answer(query: Query):
         session_last_doc_meta[session_id] = meta
 
         return stream_response(next_question)
+    
+    symptom = session_symptom_map[session_id]
+    last_q = (session_last_doc_meta.get(session_id, {}).get("question_text") or "").strip()
+    ok, why = await validate_user_input(symptom, user_message, last_question=last_q)
+
+    if not ok:
+        # Re-ask the last question without advancing or saving a Q&A
+        last_q = (session_last_doc_meta.get(session_id, {}).get("question_text") or "").strip()
+        # Gentle nudge + repeat
+        msg = (why + " " + last_q).strip() if last_q else why or "Could you tell me more about your symptoms?"
+        return stream_response(msg)
 
     # ---- Subsequent turns: save the answer with the last question, then ask the next ----
     last_meta = session_last_doc_meta.get(session_id, {})
     section = last_meta.get("section", "HPI")
     last_q = (last_meta.get("question_text") or "").strip()
-
-    # Only record if we actually had a question last turn
     if last_q:
         session_qas_map[session_id][section].append({"q": last_q, "a": user_message})
 
     # Get next question, guided by the user's latest answer
-    symptom = session_symptom_map[session_id]
     nxt = await get_next_question(session_id, symptom, user_hint=user_message)
-
     if not nxt:
-        # No more questions — extract structured summary and save
         extracted = await run_langchain_extraction(session_qas_map[session_id])
         save_chat_history_to_dynamodb(patient_id, session_id, extracted)
         _cleanup_session(session_id)
