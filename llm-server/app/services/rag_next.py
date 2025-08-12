@@ -12,9 +12,20 @@ async def get_next_question(
     session_id: str,
     symptom: str,
     user_hint: str = "follow-up question",
+    section_filter: Optional[str] = None,
     k: int = 8,
 ) -> Optional[Tuple[str, Dict[str, str]]]:
+    """
+    Retrieve the next best question for a session.
+    - Constrains search by symptom (required) and optionally by section.
+    - De-dupes by both doc id and question text per session.
+    - Returns (question_text, metadata) or None if no unasked candidate found.
+    """
+    # Build filter: must match symptom; optionally match section
     flt = Tag("symptom") == symptom
+    if section_filter:
+        flt = flt & (Tag("section") == section_filter)
+
     retriever = vectorstore.as_retriever(
         search_type="similarity",
         search_kwargs={"k": k, "filter": flt},
@@ -26,18 +37,22 @@ async def get_next_question(
 
     ids = asked_ids.setdefault(session_id, set())
     contents = asked_contents.setdefault(session_id, set())
-    
+
+    # Pick the first unasked candidate
     for d in docs:
         doc_id = (d.metadata.get("id") or d.metadata.get("_id") or "").strip()
         content = (d.page_content or "").strip()
-
-        if (doc_id and doc_id in ids) or (content and content in contents):
+        if not content:
             continue
 
+        # Skip anything we've already asked (by id or text)
+        if (doc_id and doc_id in ids) or (content in contents):
+            continue
+
+        # Mark as asked and return
         if doc_id:
             ids.add(doc_id)
-        if content:
-            contents.add(content)
+        contents.add(content)
 
         meta = {
             "id": doc_id,
@@ -45,5 +60,15 @@ async def get_next_question(
             "section": d.metadata.get("section", "HPI"),
         }
         return content, meta
-    
+
+    # All top-k were already asked
     return None
+
+def mark_question_asked(session_id: str, question_text: str, doc_id: str | None = None) -> None:
+    """Record a question as already asked so the retriever won't propose it again."""
+    ids = asked_ids.setdefault(session_id, set())
+    contents = asked_contents.setdefault(session_id, set())
+    if doc_id:
+        ids.add(doc_id)
+    if question_text:
+        contents.add(question_text.strip())
