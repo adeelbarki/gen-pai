@@ -21,13 +21,21 @@ class Query(BaseModel):
 
 SECTION_ORDER = ["chiefComplaint", "HPI", "PMH", "Medications", "SH", "FH"]
 
-# Per‑section quotas to keep the convo tidy
-SECTION_QUOTAS = {
+# Coverage targets
+SECTION_MIN = {
     "chiefComplaint": 1,
     "HPI": 4,
     "PMH": 1,
     "Medications": 1,
     "SH": 1,
+    "FH": 1,
+}
+SECTION_MAX = {
+    "chiefComplaint": 1,
+    "HPI": 6,
+    "PMH": 2,
+    "Medications": 1,
+    "SH": 2,
     "FH": 1,
 }
 
@@ -42,6 +50,65 @@ session_current_section: Dict[str, str] = {}
 
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
+# ---------- Coverage helpers ----------
+def section_count(session_id: str, section: str) -> int:
+    return len(session_qas_map.get(session_id, {}).get(section, []))
+
+def has_met_min_coverage(session_id: str) -> bool:
+    for sec in SECTION_ORDER:
+        if section_count(session_id, sec) < SECTION_MIN[sec]:
+            return False
+    return True
+
+def is_at_max_for_section(session_id: str, section: str) -> bool:
+    return section_count(session_id, section) >= SECTION_MAX[section]
+
+def advance_to_next_section(session_id: str, current_section: str) -> Optional[str]:
+    try:
+        idx = SECTION_ORDER.index(current_section)
+    except ValueError:
+        idx = -1
+    for j in range(idx + 1, len(SECTION_ORDER)):
+        sec = SECTION_ORDER[j]
+        if not is_at_max_for_section(session_id, sec):
+            session_current_section[session_id] = sec
+            return sec
+    return None
+
+async def try_get_next_in_or_after_section(
+    session_id: str,
+    symptom: str,
+    user_hint: str,
+    start_section: str,
+):
+    """Try current section; if none, advance until a question is found or sections are exhausted."""
+    # Try current section
+    nxt = await get_next_question(
+        session_id,
+        symptom,
+        user_hint=user_hint,
+        section_filter=start_section,
+    )
+    if nxt:
+        return start_section, nxt
+
+    # Otherwise advance through remaining sections
+    sec = advance_to_next_section(session_id, start_section)
+    while sec:
+        nxt = await get_next_question(
+            session_id,
+            symptom,
+            user_hint=user_hint,
+            section_filter=sec,
+        )
+        if nxt:
+            return sec, nxt
+        sec = advance_to_next_section(session_id, sec)
+
+    # Nothing found anywhere
+    return None, None
+
+# ---------- Route ----------
 @router.post("/generate-answer")
 async def generate_answer(query: Query):
     session_id = query.session_id
@@ -98,68 +165,55 @@ async def generate_answer(query: Query):
 
     # Save Q&A pair for the section we last asked from
     last_meta = session_last_doc_meta.get(session_id, {})
-    section = last_meta.get("section", "HPI")
+    last_section = last_meta.get("section", "HPI")
     if last_q:
-        session_qas_map[session_id][section].append({"q": last_q, "a": user_message})
+        session_qas_map[session_id][last_section].append({"q": last_q, "a": user_message})
 
-    # Check quota and advance section if needed
+    # Determine current section (may advance if section hit MAX)
     current_section = session_current_section.get(session_id, "chiefComplaint")
-    if len(session_qas_map[session_id][current_section]) >= SECTION_QUOTAS[current_section]:
-        curr_idx = SECTION_ORDER.index(current_section)
-        if curr_idx + 1 < len(SECTION_ORDER):
-            current_section = SECTION_ORDER[curr_idx + 1]
-            session_current_section[session_id] = current_section
+    if is_at_max_for_section(session_id, current_section):
+        next_sec = advance_to_next_section(session_id, current_section)
+        if next_sec:
+            current_section = next_sec
 
-    # Try to get the next question for the (possibly updated) current section
-    nxt = await get_next_question(
+    # If ALL mins are already met, finish right away (even if RAG has more)
+    if has_met_min_coverage(session_id):
+        extracted = await run_langchain_extraction(session_qas_map[session_id])
+        save_chat_history_to_dynamodb(patient_id, session_id, extracted)
+        _cleanup_session(session_id)
+        return stream_response("Thanks! I’ve collected everything I need.")
+
+    # Try to get a question in current section; if none, advance until we find one
+    target_section, nxt = await try_get_next_in_or_after_section(
         session_id,
         symptom,
         user_hint=user_message if user_message else symptom,
-        section_filter=current_section,
+        start_section=current_section,
     )
 
-    # If no question in the current section, try advancing until we find one or exhaust sections
     if not nxt:
-        curr_idx = SECTION_ORDER.index(current_section)
-        found = None
-        while curr_idx + 1 < len(SECTION_ORDER):
-            curr_idx += 1
-            session_current_section[session_id] = SECTION_ORDER[curr_idx]
-            nxt = await get_next_question(
-                session_id,
-                symptom,
-                user_hint=user_message if user_message else symptom,
-                section_filter=session_current_section[session_id],
-            )
-            if nxt:
-                found = nxt
-                break
+        # No more questions anywhere → if mins met, finish; otherwise finish best‑effort
+        extracted = await run_langchain_extraction(session_qas_map[session_id])
+        save_chat_history_to_dynamodb(patient_id, session_id, extracted)
+        _cleanup_session(session_id)
+        return stream_response("Thanks! I’ve collected everything I need.")
 
-        if not found:
-            # No more questions → extract, save, cleanup, finish
-            extracted = await run_langchain_extraction(session_qas_map[session_id])
-            save_chat_history_to_dynamodb(patient_id, session_id, extracted)
-            _cleanup_session(session_id)
-            return stream_response("Thanks! I’ve collected everything I need.")
-        else:
-            next_question, meta = found
-            meta["question_text"] = next_question
-            session_last_doc_meta[session_id] = meta
-            return stream_response(next_question)
-
-    # We have a next question in the current section
+    # Ask the found question
     next_question, meta = nxt
     meta["question_text"] = next_question
+    # Update current section in case we advanced
+    if target_section:
+        session_current_section[session_id] = target_section
+        meta["section"] = target_section
     session_last_doc_meta[session_id] = meta
-    return stream_response(next_question)
 
+    return stream_response(next_question)
 
 # ---- SSE helper ----
 def stream_response(message: str) -> StreamingResponse:
     async def streaming_generator() -> AsyncIterator[str]:
         yield f"data: {message}\n\n"
     return StreamingResponse(streaming_generator(), media_type="text/event-stream")
-
 
 # ---- cleanup ----
 def _cleanup_session(session_id: str) -> None:
