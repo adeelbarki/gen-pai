@@ -2,7 +2,7 @@ import json
 import re
 from typing import Dict, List, Any
 from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage
+from langchain.schema import HumanMessage, SystemMessage
 
 SECTION_ORDER = ["chiefComplaint", "HPI", "PMH", "Medications", "SH", "FH"]
 
@@ -13,6 +13,8 @@ def _coerce_text(value: Any) -> str:
         return ""
     if isinstance(value, list):
         return " ".join([str(x).strip() for x in value if str(x).strip()]).strip()
+    if isinstance(v, dict):
+        return json.dumps(v, ensure_ascii=False)
     return str(value).strip()
 
 def format_qa_for_prompt(answers_by_section: dict[str, list[str]]) -> str:
@@ -48,10 +50,18 @@ async def run_langchain_extraction(answers_by_section: dict[str, list[str]]) -> 
     Summarize answers into structured clinical history.
     """
     body = format_qa_for_prompt(answers_by_section)
-    prompt = f"""
-You are a clinical assistant AI. Based on the following patient answers, extract a structured clinical history.
+    system = SystemMessage(content=(
+        "You are a careful clinical summarizer. "
+        "Preserve stated positives and negatives exactly. "
+        "Do not invent or contradict the patient’s answers. "
+        "If a section lacks information, return 'not reported'. "
+        "Return only a JSON object with the required keys."
+    ))
+    
+    user = HumanMessage(content=f"""
+From the following sectioned Q&A, produce a concise clinical summary.
 
-Only return a valid JSON object with exactly these fields:
+Return ONLY a JSON object with exactly these keys:
 - chiefComplaint
 - HPI
 - PMH
@@ -59,13 +69,19 @@ Only return a valid JSON object with exactly these fields:
 - SH
 - FH
 
-Be concise and clinically accurate.
+Guidelines:
+- chiefComplaint is the patient’s primary reason for visit (from the chiefComplaint Q&A).
+- HPI: timeline, character (dry/wet cough), associated symptoms (present AND absent), severity if given.
+- PMH: relevant past illnesses.
+- Medications: current meds or treatments tried.
+- SH: smoking, exposures, living/working context.
+- FH: relevant family conditions.
 
-Patient answers:
+Sectioned Q&A:
 {body}
-""".strip()
+""".strip())
 
-    resp = await llm.ainvoke([HumanMessage(content=prompt)])
+    resp = await llm.ainvoke([system, user])
     raw = (resp.content or "").strip()
 
     # Try strict JSON parsing (with code-fence/mixed-output tolerance)
