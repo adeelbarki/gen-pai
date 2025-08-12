@@ -7,7 +7,7 @@ from typing import AsyncIterator, Dict, List, Optional, Tuple
 
 from app.services.rag_next import get_next_question
 from app.services.chat_services import extract_symptom
-from app.services.chat_services import save_chat_history_to_dynamodb
+from app.services.dynamodb_services import save_chat_history_to_dynamodb
 from app.prompts.symptom_qs_prompt import run_langchain_extraction
 from langchain_openai import ChatOpenAI
 

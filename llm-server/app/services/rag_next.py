@@ -47,12 +47,3 @@ async def get_next_question(
         return content, meta
     
     return None
-
-    
-    # d = docs[0]
-    # doc_id = d.metadata.get("id") or d.metadata.get("_id") or ""
-    # return d.page_content, {
-    #     "id": doc_id,
-    #     "symptom": d.metadata.get("symptom", ""),
-    #     "section": d.metadata.get("section", "HPI"),
-    # }
