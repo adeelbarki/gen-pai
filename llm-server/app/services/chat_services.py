@@ -3,22 +3,12 @@ import numpy as np
 import openai
 from ..redis_config import r
 from ..config import (
-    OPENAI_API_KEY,
-    table,
+    OPENAI_API_KEY
 )
-from datetime import datetime
 
 
 openai.api_key = OPENAI_API_KEY
 
-
-def get_embeddings(text: str, model: str = "text-embedding-3-small") -> np.ndarray:
-    try:
-        response = openai.embeddings.create(input=[text], model=model)
-        return np.array(response.data[0].embedding, dtype=np.float32)
-    except Exception as e:
-        print(f"Embedding error: {e}")
-        return np.zeros(1536, dtype=np.float32)
     
 def extract_symptom(user_input: str) -> str:
     symptom_keywords = ["cough", "fever", "sore throat", "headache", "fatigue", "shortness of breath"]
@@ -34,25 +24,3 @@ def load_symptom_question_data():
         return json.load(f)
     
 symptom_questions = load_symptom_question_data()
-
-def retrieve_symptom_questions(symptom: str):
-    for entry in symptom_questions:
-        if entry["symptom"].lower() == symptom.lower():
-            return entry.get("questions", {})
-    return {}
-
-def save_chat_history_to_dynamodb(
-        patient_id: str, 
-        session_id: str, 
-        extracted: str):
-    item = {
-        "patientId": patient_id,
-        "SK": f"ChatHistory#{session_id}",
-        "recordType": "ChatHistory",
-        "timestamp": datetime.utcnow().isoformat(),
-        "sessionId": session_id,
-        "extracted": extracted
-    }
-
-    table.put_item(Item=item)
-
