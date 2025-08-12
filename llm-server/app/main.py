@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from .redis_config import r, ensure_symptom_index_exists
-from app.services.chat_services import symptom_questions
+from app.services.chat_services import symptom_questions, build_symptom_index, set_symptom_index
 from app.routes import (
     chat_routes, 
     classify_xray_routes,
@@ -18,6 +18,8 @@ async def lifespan(app: FastAPI):
     ensure_symptom_index_exists()
 
     upsert_symptom_questions_to_vectorstore(vectorstore, symptom_questions)
+    idx = build_symptom_index(symptom_questions)
+    set_symptom_index(idx)
 
     #Test if Questions are embedded
     # from redisvl.query.filter import Tag
