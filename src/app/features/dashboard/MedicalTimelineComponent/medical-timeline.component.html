@@ -22,4 +22,26 @@
         class="w-[70%] h-8 rounded-md flex items-center justify-center transition">
         M</button>
     </div>
+
+    <div class="pr-1">
+    <!-- Show accordions only when Events tab is active -->
+   <div class="pr-2"> <!-- tweak if your pill block width changes -->
+    <div class="flex flex-col gap-3" *ngIf="activeTab === 'Events'">
+      <app-accordion 
+        [title]="'Patient History'"        
+        [items]="historyItems"  
+        [open]="true"
+        [rightIconIndex]="0"
+        [blinkIconIndex]="0">
+      </app-accordion>
+      <app-accordion [title]="'Physical Examination'"   [items]="examItems"></app-accordion>
+      <app-accordion [title]="'Results'"                [items]="resultsItems"></app-accordion>
+    </div>
+  </div>
+
+    <!-- placeholders for other tabs as you add them
+    <app-studies-tab *ngIf="activeTab === 'Recent Studies'"></app-studies-tab>
+    <app-medicine-tab *ngIf="activeTab === 'Medicine History'"></app-medicine-tab>
+    -->
+  </div>
 </div>
