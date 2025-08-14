@@ -3,11 +3,14 @@
         <h2 class="text-xl font-bold">{{ activeTab }}</h2>
     </div>
     <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[70%] w-[12%] h-[17%] bg-white shadow-lg rounded-lg flex flex-col items-center justify-center gap-2">
-        <button 
-            (click)="setActiveTab('Events')"
-            [ngClass]="{'bg-blue-500 text-white': activeTab === 'Events', 'bg-gray-200 hover:bg-blue-400 hover:text-white': activeTab !== 'Events'}"
-            class="w-[70%] h-8 rounded-md flex items-center justify-center transition">
-        E</button>
+       <app-event-pill
+        [active]="activeTab === 'Events'"
+        [label]="'E'"
+        [tabValue]="'Events'"
+        (tabChange)="setActiveTab($event)"
+        >
+        </app-event-pill>
+       
         <button 
             (click)="setActiveTab('Recent Studies')"  
             [ngClass]="{'bg-blue-500 text-white': activeTab === 'Recent Studies', 'bg-gray-200 hover:bg-blue-400 hover:text-white': activeTab !== 'Recent Studies'}"

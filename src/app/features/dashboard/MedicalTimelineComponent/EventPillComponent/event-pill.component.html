@@ -1,0 +1,12 @@
+<button
+  type="button"
+  (click)="onClick()"
+  [ngClass]="{
+    'bg-blue-500 text-white': active,
+    'bg-gray-200 hover:bg-blue-400 hover:text-white': !active
+  }"
+  class="w-[70%] h-8 rounded-md flex items-center justify-center transition"
+  [attr.aria-pressed]="active"
+>
+  {{ label }}
+</button>
