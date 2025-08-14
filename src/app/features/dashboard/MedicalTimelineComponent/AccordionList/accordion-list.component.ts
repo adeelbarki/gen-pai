@@ -17,14 +17,12 @@ export class AccordionListComponent {
   @Input() blinkIconFor?: string;
   @Input() blinkIconIndex?: number;
 
+  @Input() checkIconIndex?: number;
+
   showIcon(it: string, i: number): boolean {
-    if (this.rightIconIndex !== undefined && this.rightIconIndex !== null) {
-      return i === this.rightIconIndex;
-    }
-    if (this.rightIconFor) {
-      // tolerant compare: trim + lowercase
-      return it?.trim().toLowerCase() === this.rightIconFor.trim().toLowerCase();
-    }
+    if (this.checkIconIndex === i) return false; // don't show spinner if check is set
+    if (this.rightIconIndex != null) return i === this.rightIconIndex;
+    if (this.rightIconFor) return it?.trim().toLowerCase() === this.rightIconFor.trim().toLowerCase();
     return false;
   }
 
