@@ -9,7 +9,7 @@ import { AccordionListComponent } from '../AccordionList/accordion-list.componen
   templateUrl: './events-tab.component.html'
 })
 export class EventsTabComponent {
-  @Input() historyItems: string[] = ['Gathering History', 'Analyzing History'];
+  @Input() historyItems: string[] = ['Gathering', 'Analyzing'];
   @Input() examItems: string[] = ['Fetching Physical Exam', 'Analyzing Physical Exam'];
   @Input() resultsItems: string[] = ['Fetching Medical Reports', 'Analyzing Medical Reports', 'Predictions'];
 }

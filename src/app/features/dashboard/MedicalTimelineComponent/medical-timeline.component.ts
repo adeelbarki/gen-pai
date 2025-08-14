@@ -13,9 +13,9 @@ import { AccordionListComponent } from './AccordionList/accordion-list.component
 export class MedicalTimelineComponent {
     activeTab: string = 'Events';
 
-    historyItems = ['Gathering History', 'Analyzing History'];
-    examItems = ['Fetching Physical Exam', 'Analyzing Physical Exam'];
-    resultsItems = ['Fetching Medical Reports', 'Analyzing Medical Reports', 'Predictions'];
+    historyItems = ['Gathering', 'Analyzing'];
+    examItems = ['Fetching', 'Analyzing'];
+    resultsItems = ['Fetching Medical Reports', 'Analyzing Reports', 'Predictions'];
 
   setActiveTab(tabName: string) {
     this.activeTab = tabName;
