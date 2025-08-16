@@ -38,10 +38,27 @@
       </div>
 
       <!-- Right Card -->
-      <div class="w-1/4 h-full flex flex-col">
-        <div class="w-full h-full flex">
+      <div class="w-1/4 h-full flex flex-col gap-4">
+        <div class="flex-[3] min-h-0">
           <app-medical-timeline class="w-full h-full"></app-medical-timeline>
         </div>
+        <div class="flex-[2] min-h-0 bg-white shadow-md rounded-lg p-4 overflow-auto">
+    <div class="w-full pb-2 border-b-2 border-gray-200 mb-3">
+      <h2 class="text-lg font-semibold">Status / Summary</h2>
+    </div>
+
+    <!-- placeholder content, replace with your component later -->
+    <ul class="text-sm text-gray-700 space-y-2">
+      <li class="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
+        <span>Last step</span>
+        <span class="text-xs text-gray-500">2m ago</span>
+      </li>
+      <li class="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
+        <span>Next action</span>
+        <span class="text-xs text-gray-500">Pending</span>
+      </li>
+    </ul>
+  </div>
       </div>
     </ng-container>
 

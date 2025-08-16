@@ -1,0 +1,13 @@
+.blink-color {
+  animation: blink-color 1.2s ease-in-out infinite;
+}
+
+@keyframes blink-color {
+  0%, 100% { color: #a2a0a0; } /* original */
+  50%      { color: #000000; } /* dark black */
+}
+
+/* Accessibility: respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .blink-color { animation: none; }
+}
