@@ -1,9 +1,10 @@
-  import { Component, ElementRef, ViewChild } from '@angular/core';
+  import { Component, ElementRef, ViewChild, OnInit } from '@angular/core';
   import { ChatService } from './chat.service';
   import { FormsModule } from '@angular/forms';
   import { CommonModule } from '@angular/common';
   import { MarkdownModule } from 'ngx-markdown';
   import { EventsStatusService } from '../../../core/services/events-status.service';
+  import { ReviewOrchestratorService } from '../ReviewOrchestratorService/review-orchestrator.service';
 
 
   @Component({
@@ -25,22 +26,31 @@
     loading: boolean = false;
     loadingInterval: any;
 
-    
-    constructor(private chatService: ChatService, private eventsStatus: EventsStatusService) {}
-
     chatLog: { role: 'user' | 'ai', text: string }[] = [];
 
     @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
 
+    constructor(
+      private chatService: ChatService, 
+      private eventsStatus: EventsStatusService,
+      private orchestrator: ReviewOrchestratorService) {}
+
+    ngOnInit() {
+    this.orchestrator.chatMessages$.subscribe((msg) => {
+      this.chatLog.push({ role: 'ai', text: msg.text });
+      this.scrollToBottom();
+      });
+    }
+
 
     private containsCompletionPhrase(s: string): boolean {
-    // handle straight/curly apostrophes
     const norm = (x: string) => x.replace(/[’]/g, "'").toLowerCase();
     const needle = "thanks! i've collected everything i need.";
     return norm(s).includes(needle);
   }
 
     sendMessage() {
+      const userText = this.message;
       this.chatLog.push({ role: 'user', text: this.message });
       this.chatLog.push({ role: 'ai', text: '' });
 
@@ -49,8 +59,10 @@
       this.chatService.sendMessage(this.message, this.patientId).subscribe({
       next: (chunk: string) => {
         this.chatLog[aiIndex].text += chunk;
+        const fullBotText = this.chatLog[aiIndex].text;
         if (this.containsCompletionPhrase(this.chatLog[aiIndex].text)) {
           this.eventsStatus.setGatheringHistoryDone(true);
+          this.orchestrator.onBotMessageDisplayed(fullBotText);
         }
         this.scrollToBottom();
       },
@@ -77,7 +89,4 @@
         console.error('Scroll error:', err);
       }
     }
-
-    
   }
-

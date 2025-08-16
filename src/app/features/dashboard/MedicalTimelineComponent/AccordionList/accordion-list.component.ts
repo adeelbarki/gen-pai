@@ -20,7 +20,7 @@ export class AccordionListComponent {
   @Input() checkIconIndex?: number;
 
   showIcon(it: string, i: number): boolean {
-    if (this.checkIconIndex === i) return false; // don't show spinner if check is set
+    if (this.checkIconIndex === i) return false;
     if (this.rightIconIndex != null) return i === this.rightIconIndex;
     if (this.rightIconFor) return it?.trim().toLowerCase() === this.rightIconFor.trim().toLowerCase();
     return false;
