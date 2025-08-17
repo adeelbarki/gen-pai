@@ -12,7 +12,7 @@ export interface ChatMessage {
 
 @Injectable({ providedIn: 'root'})
 export class ReviewOrchestratorService {
-    @Input() patientId: string | null = null
+    patientId = "54862509-2480-4d58-99b8-7e6fe993875b";
     
     private readonly THANKYOU_TRIGGER = /thanks!\s*i[’']?ve collected everything i need\.?/i;
 

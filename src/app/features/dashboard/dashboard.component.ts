@@ -20,7 +20,7 @@ import { StudyImageViewerComponent } from './StudyImageViewerComponent/study-ima
 })
 export class DashboardComponent {
   @Input() signOut!: () => void;
-  patientId: string = "54ade882-3ada-4442-b66e-740b5a65e014";
+  patientId: string = "54862509-2480-4d58-99b8-7e6fe993875b";
   activeTab: string = 'Dashboard';
 
   tabs = [
