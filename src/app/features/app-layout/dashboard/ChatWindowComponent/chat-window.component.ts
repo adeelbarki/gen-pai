@@ -3,8 +3,8 @@
   import { FormsModule } from '@angular/forms';
   import { CommonModule } from '@angular/common';
   import { MarkdownModule } from 'ngx-markdown';
-  import { EventsStatusService } from '../../../core/services/events-status.service';
-  import { ReviewOrchestratorService } from '../ReviewOrchestratorService/review-orchestrator.service';
+  import { EventsStatusService } from '../../../../core/services/events-status.service';
+  import { ReviewOrchestratorService } from '../../ReviewOrchestratorService/review-orchestrator.service';
 
 
   @Component({
@@ -16,7 +16,10 @@
         FormsModule,
         MarkdownModule
       ],
-      styleUrl: './chat-window.component.css'
+      styleUrl: './chat-window.component.css',
+    host: {
+    class: 'w-full h-full bg-white shadow-lg rounded-lg p-6 flex flex-col'
+  }
   })
 
   export class ChatWindowComponent {
