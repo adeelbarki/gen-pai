@@ -7,7 +7,8 @@ from app.routes import (
     classify_xray_routes,
     imaging_routes,
     process_ocr_routes,
-    physical_exam_results_routes
+    physical_exam_results_routes,
+    analyze_qa_pexam_route
 )
 from app.services.rag_setup import upsert_symptom_questions_to_vectorstore
 from app.vectorstore_config import vectorstore
@@ -46,5 +47,8 @@ app.include_router(imaging_routes.router)
 # --- Endpoint 4: Fetch handwritten note using sqs queue and convert to text---
 app.include_router(process_ocr_routes.router)
 
-# --- Endpoint 4: Fetch physical exam results in text file and save to patient records---
+# --- Endpoint 5: Fetch physical exam results in text file and save to patient records---
 app.include_router(physical_exam_results_routes.router)
+
+# --- Endpoint 6: Analyze QA and physical exam results and send summary ---
+app.include_router(analyze_qa_pexam_route.router)
