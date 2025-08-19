@@ -13,8 +13,8 @@ def _coerce_text(value: Any) -> str:
         return ""
     if isinstance(value, list):
         return " ".join([str(x).strip() for x in value if str(x).strip()]).strip()
-    if isinstance(v, dict):
-        return json.dumps(v, ensure_ascii=False)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
     return str(value).strip()
 
 def format_qa_for_prompt(answers_by_section: dict[str, list[str]]) -> str:
@@ -33,15 +33,20 @@ def format_qa_for_prompt(answers_by_section: dict[str, list[str]]) -> str:
     return "\n\n".join(parts)
 
 def _extract_json_block(text: str) -> str:
-    """
-    Best-effort: if model wraps JSON in code fences or adds prose,
-    pull the first {...} block.
-    """
-    # Try plain first
     s = text.strip()
     if s.startswith("{") and s.endswith("}"):
+        depth = 0
+        start = -1
+        for i, ch in enumerate(s):
+            if ch == '{':
+                if depth == 0: start = i
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0 and start != -1:
+                    return s[start:i+1]
         return s
-    # Try code-fence or mixed output
+
     m = re.search(r"\{(?:[^{}]|(?R))*\}", s, re.DOTALL)  # recursive-like JSON block
     return m.group(0) if m else s
 
@@ -59,27 +64,27 @@ async def run_langchain_extraction(answers_by_section: dict[str, list[str]]) -> 
     ))
     
     user = HumanMessage(content=f"""
-From the following sectioned Q&A, produce a concise clinical summary.
+        From the following sectioned Q&A, produce a concise clinical summary.
 
-Return ONLY a JSON object with exactly these keys:
-- chiefComplaint
-- HPI
-- PMH
-- Medications
-- SH
-- FH
+        Return ONLY a JSON object with exactly these keys:
+        - chiefComplaint
+        - HPI
+        - PMH
+        - Medications
+        - SH
+        - FH
 
-Guidelines:
-- chiefComplaint is the patient’s primary reason for visit (from the chiefComplaint Q&A).
-- HPI: timeline, character (dry/wet cough), associated symptoms (present AND absent), severity if given.
-- PMH: relevant past illnesses.
-- Medications: current meds or treatments tried.
-- SH: smoking, exposures, living/working context.
-- FH: relevant family conditions.
+        Guidelines:
+        - chiefComplaint is the patient’s primary reason for visit (from the chiefComplaint Q&A).
+        - HPI: timeline, character (dry/wet cough), associated symptoms (present AND absent), severity if given.
+        - PMH: relevant past illnesses.
+        - Medications: current meds or treatments tried.
+        - SH: smoking, exposures, living/working context.
+        - FH: relevant family conditions.
 
-Sectioned Q&A:
-{body}
-""".strip())
+        Sectioned Q&A:
+        {body}
+        """.strip())
 
     resp = await llm.ainvoke([system, user])
     raw = (resp.content or "").strip()

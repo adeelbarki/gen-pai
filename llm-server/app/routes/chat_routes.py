@@ -7,8 +7,10 @@ from typing import AsyncIterator, Dict, List, Optional, Tuple
 
 from app.services.rag_next import get_next_question, mark_question_asked
 from app.services.chat_services import extract_symptom, retrieve_symptom_questions
+from app.services.persona_services import screen_red_flags, rewrite_question_with_persona
 from app.services.dynamodb_services import save_chat_history_to_dynamodb
 from app.services.validators import validate_user_input
+from app.prompts.persona_prompt import EMERGENCY_MESSAGE
 from app.prompts.symptom_qs_prompt import run_langchain_extraction
 from langchain_openai import ChatOpenAI
 
@@ -81,8 +83,7 @@ async def try_get_next_in_or_after_section(
     user_hint: str,
     start_section: str,
 ):
-    """Try current section; if none, advance until a question is found or sections are exhausted."""
-    # Try current section
+
     nxt = await get_next_question(
         session_id,
         symptom,
@@ -115,6 +116,11 @@ async def generate_answer(query: Query):
     patient_id = query.patient_id
     user_message = (query.message or "").strip()
 
+    hits = screen_red_flags(user_message)
+    if hits:
+        # optional: log hits for QA
+        return stream_response(EMERGENCY_MESSAGE)
+
     # ---- First turn: detect symptom, init state, ask CC first ----
     if session_id not in session_symptom_map:
         symptom = extract_symptom(user_message)
@@ -144,6 +150,13 @@ async def generate_answer(query: Query):
         # Mark CC as asked so RAG won’t repeat it later
         mark_question_asked(session_id, next_question)
 
+        persona_q = await rewrite_question_with_persona(
+            question=next_question,
+            last_user_reply=user_message,
+            symptom=symptom
+        )
+
+
         # Stash meta so we can store the answer next turn
         session_last_doc_meta[session_id] = {
             "id": "",
@@ -151,7 +164,7 @@ async def generate_answer(query: Query):
             "section": "chiefComplaint",
             "question_text": next_question,
         }
-        return stream_response(next_question)
+        return stream_response(persona_q)
 
     # ---- Subsequent turns ----
     symptom = session_symptom_map[session_id]
@@ -200,6 +213,13 @@ async def generate_answer(query: Query):
 
     # Ask the found question
     next_question, meta = nxt
+
+    mark_question_asked(session_id, next_question, doc_id=meta.get("id"))
+    persona_q = await rewrite_question_with_persona(
+        question=next_question,
+        last_user_reply=user_message,
+        symptom=symptom
+    )
     meta["question_text"] = next_question
     # Update current section in case we advanced
     if target_section:
@@ -207,7 +227,7 @@ async def generate_answer(query: Query):
         meta["section"] = target_section
     session_last_doc_meta[session_id] = meta
 
-    return stream_response(next_question)
+    return stream_response(persona_q)
 
 # ---- SSE helper ----
 def stream_response(message: str) -> StreamingResponse:
