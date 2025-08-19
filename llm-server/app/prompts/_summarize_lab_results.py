@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 
-def _summarize_doctor_style(patient_id: str, encounter_id: str, xray_text: str, lab_text: str) -> str:
+def _summarize_doctor_style(patient_id: str, encounter_id: str, hp_summary: str, xray_text: str, lab_text: str) -> str:
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.5)
 
     system = SystemMessage(content=(
@@ -13,6 +13,7 @@ def _summarize_doctor_style(patient_id: str, encounter_id: str, xray_text: str, 
 
     context = (
         f"Patient: {patient_id}\nEncounter: {encounter_id}\n\n"
+        f"== H&P Summary == [H&P]\n{hp_summary}\n\n"
         f"== XRay ==\n{xray_text}\n\n"
         f"== Lab Report (PDF Text) ==\n{lab_text if lab_text.strip() else 'No lab text extracted.'}\n"
     )
