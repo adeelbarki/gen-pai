@@ -1,0 +1,23 @@
+    <!-- Left Column -->
+    <div class="w-1/6 bg-white rounded-lg shadow p-4 overflow-auto">
+        <div *ngFor="let modality of studies | keyvalue">
+          <div class="cursor-pointer font-semibold text-lg text-blue-600 hover:underline"
+               (click)="toggleExpand(modality.key)">
+            {{ modality.key }}
+          </div>
+          <ul *ngIf="expanded === modality.key" class="ml-4 mt-2 space-y-1">
+            <li *ngFor="let image of modality.value"
+                class="text-blue-500 cursor-pointer hover:underline"
+                (click)="selectImage(image)">
+              {{ image }}
+            </li>
+          </ul>
+        </div>
+    </div>
+     <!-- Right Column -->
+    <div class="w-5/6 bg-white rounded-lg shadow flex items-center justify-center">
+        <app-study-image-viewer 
+          [imageName]="selectedImage" 
+          [patientId]="patientId">
+        </app-study-image-viewer>
+    </div>

@@ -4,12 +4,14 @@ import { Router } from '@angular/router';
 import { AmplifyAuthenticatorModule } from '@aws-amplify/ui-angular';
 import { Amplify } from 'aws-amplify';
 import { environment } from '../environments/environment';
-import { DashboardComponent } from './features/dashboard/dashboard.component';
+import { AppLayoutComponent } from './features/app-layout/app-layout.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [AmplifyAuthenticatorModule, DashboardComponent],
+  imports: [
+    AmplifyAuthenticatorModule, 
+    AppLayoutComponent],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
