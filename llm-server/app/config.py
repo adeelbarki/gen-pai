@@ -17,6 +17,7 @@ DATASTORE_ID = os.getenv("DATASTORE_ID")
 DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME")
 DATASTORE_ID = os.getenv("DATASTORE_ID")
 BUCKET_NAME = os.getenv("BUCKET_NAME")
+S3_BUCKET_PATIENT_RECORDS = os.getenv("S3_BUCKET_PATIENT_RECORDS")
 
 # AWS session
 session = boto3.Session(profile_name=AWS_PROFILE, region_name=AWS_REGION)
